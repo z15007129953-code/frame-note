@@ -157,6 +157,49 @@ for (const scope of ['project', 'member', 'creator'] as const) {
   });
 }
 
+for (const operation of ['version-screen', 'version-asset', 'reorder'] as const) {
+  for (const scope of ['project', 'member'] as const) {
+    test(`${operation} rechecks ${scope} expiry after a downstream row lock wait`, async () => {
+      const f = await fixture();
+      const assetId = await asset(f);
+      const expiryTable = scope === 'project' ? 'projects' : 'members';
+      const expiryId = scope === 'project' ? f.project.id : f.memberId;
+      const lockTable = operation === 'version-asset' ? 'assets' : 'screens';
+      const lockId = operation === 'version-asset' ? assetId : f.screen.id;
+      await sql`update ${sql(expiryTable)} set expires_at = clock_timestamp() + interval '2 seconds' where id = ${expiryId}`;
+      const blocker = await sql.reserve();
+      let pending: Promise<unknown> | undefined;
+      try {
+        await blocker`begin`;
+        const pid = await blocker`select pg_backend_pid() as pid`;
+        await blocker`select id from ${blocker(lockTable)} where id = ${lockId} for update`;
+        pending = (operation === 'reorder'
+          ? repository.reorderScreens(f.workspaceId, f.project.id, f.presentation.id, f.memberId, [f.screen.id])
+          : repository.addVersion(f.workspaceId, f.project.id, f.screen.id, f.memberId, assetId))
+          .then(value => ({ value }), error => ({ error }));
+        let blocked = false;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const rows = await sql`select exists(select 1 from pg_stat_activity where ${pid[0]!.pid} = any(pg_blocking_pids(pid))) as blocked`;
+          if (rows[0]!.blocked) { blocked = true; break; }
+          await sql`select pg_sleep(0.01)`;
+        }
+        assert.ok(blocked, 'Repository must reach the downstream row lock before expiry');
+        await blocker`select pg_sleep(greatest(extract(epoch from expires_at - clock_timestamp()), 0)::double precision + 0.02)
+          from ${blocker(expiryTable)} where id = ${expiryId}`;
+        await blocker`commit`;
+        const result = await pending as { error?: unknown };
+        assert.ok(code('forbidden')(result.error), 'Downstream lock acquisition must recheck expiry');
+        const rows = await sql`select count(*)::int as count from versions where screen_id = ${f.screen.id}`;
+        assert.equal(rows[0]!.count, 0);
+      } finally {
+        await blocker`rollback`;
+        blocker.release();
+        if (pending) await pending;
+      }
+    });
+  }
+}
+
 test('reordering requires exact permutation and rejection preserves prior order', async () => {
   const f = await fixture();
   const second = await repository.createScreen(f.workspaceId, f.project.id, f.presentation.id, f.memberId, 'Second');

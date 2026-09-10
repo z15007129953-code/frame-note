@@ -44,6 +44,11 @@ export class ReviewRepository {
     const membership = await tx`select role from project_members
       where workspace_id = ${workspaceId} and project_id = ${projectId} and member_id = ${memberId} for update`;
     if (!member.length || !membership.length) throw new ReviewError('forbidden');
+    await this.assertActive(tx, workspaceId, projectId, memberId);
+    if (edit && membership[0]!.role !== 'collaborator' && membership[0]!.role !== 'owner') throw new ReviewError('forbidden');
+  }
+
+  private async assertActive(tx: Transaction, workspaceId: string, projectId: string, memberId: string) {
     // Evaluate time in a separate statement after every authorization lock has
     // been acquired; transaction-start time can be stale after a lock wait.
     const active = await tx`select (p.expires_at is null or p.expires_at > clock_timestamp())
@@ -51,7 +56,6 @@ export class ReviewRepository {
       from projects p join members m on m.workspace_id = p.workspace_id
       where p.workspace_id = ${workspaceId} and p.id = ${projectId} and m.id = ${memberId}`;
     if (!active[0]?.active) throw new ReviewError('forbidden');
-    if (edit && membership[0]!.role !== 'collaborator' && membership[0]!.role !== 'owner') throw new ReviewError('forbidden');
   }
 
   private async presentation(tx: Transaction, workspaceId: string, projectId: string, presentationId: string) {
@@ -111,6 +115,7 @@ export class ReviewRepository {
       await this.authorize(tx, workspaceId, projectId, memberId, true);
       await this.presentation(tx, workspaceId, projectId, presentationId);
       const rows = await tx`select id from screens where workspace_id = ${workspaceId} and project_id = ${projectId} and presentation_id = ${presentationId} for update`;
+      await this.assertActive(tx, workspaceId, projectId, memberId);
       const existing = new Set(rows.map(row => row.id));
       if (orderedIds.length !== rows.length || new Set(orderedIds).size !== rows.length || orderedIds.some(id => !existing.has(id))) throw new ReviewError('invalid');
       for (const [position, id] of orderedIds.entries()) {
@@ -126,6 +131,7 @@ export class ReviewRepository {
       const screen = await tx`select id from screens where workspace_id = ${workspaceId} and project_id = ${projectId} and id = ${screenId} for update`;
       if (!screen.length) throw new ReviewError('not-found');
       const asset = await tx`select status from assets where workspace_id = ${workspaceId} and project_id = ${projectId} and id = ${assetId} for share`;
+      await this.assertActive(tx, workspaceId, projectId, memberId);
       if (!asset.length) throw new ReviewError('not-found');
       if (asset[0]!.status !== 'ready') throw new ReviewError('invalid');
       const previous = await tx<Version[]>`select id, workspace_id as "workspaceId", project_id as "projectId", screen_id as "screenId", asset_id as "assetId", number, created_at as "createdAt"
