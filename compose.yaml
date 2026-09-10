@@ -1,0 +1,28 @@
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: frame_local
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set a local password}
+      POSTGRES_DB: frame_note
+    ports: ["127.0.0.1:54341:5432"]
+    volumes: ["frame-development:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frame_local -d frame_note"]
+      interval: 2s
+      retries: 15
+  test-database:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: frame_local
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set a local password}
+      POSTGRES_DB: frame_note_test
+    ports: ["127.0.0.1:54342:5432"]
+    volumes: ["frame-test:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frame_local -d frame_note_test"]
+      interval: 2s
+      retries: 15
+volumes:
+  frame-development:
+  frame-test:

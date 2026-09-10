@@ -5,8 +5,16 @@
   "type": "module",
   "engines": { "node": ">=24 <25" },
   "scripts": {
-    "test": "node --test src/domain/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "node --test src/domain/*.test.ts src/db/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:db": "node --env-file-if-exists=.env.local --test tests/persistence.test.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local src/db/migrate-cli.ts",
+    "db:local": "node scripts/local-db.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
