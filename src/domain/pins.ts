@@ -24,7 +24,14 @@ export function isValidPin(value: unknown): value is Pin {
 /** Use the rendered image bounds, excluding the surrounding stage/letterbox. */
 export function normalizePin(position: Pin, image: ImageRect): Pin | null {
   if (!point(position) || !rectangle(image)) return null;
-  const pin = { x: (position.x - image.left) / image.width, y: (position.y - image.top) / image.height };
+  const right = image.left + image.width;
+  const bottom = image.top + image.height;
+  if (position.x < image.left || position.x > right || position.y < image.top || position.y > bottom) return null;
+  // Exact far-edge hits stay inclusive despite fractional CSS-pixel arithmetic.
+  const pin = {
+    x: position.x === right ? 1 : (position.x - image.left) / image.width,
+    y: position.y === bottom ? 1 : (position.y - image.top) / image.height,
+  };
   return isValidPin(pin) ? pin : null;
 }
 

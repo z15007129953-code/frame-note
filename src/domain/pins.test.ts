@@ -52,6 +52,10 @@ test('validates both inclusive edges', () => {
   assert.equal(isValidPin({ x: 0, y: 1 }), true);
   assert.equal(isValidPin({ x: 1, y: 0 }), true);
 });
+test('accepts fractional far edges without floating-point drift', () => {
+  const rect = { left: 0.1, top: 0.1, width: 0.2, height: 0.2 };
+  assert.deepEqual(normalizePin({ x: rect.left + rect.width, y: rect.top + rect.height }, rect), { x: 1, y: 1 });
+});
 test('does not mutate frozen inputs', () => {
   const pin = Object.freeze({ x: 0.5, y: 0.5 });
   const rect = Object.freeze(image);
