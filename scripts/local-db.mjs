@@ -35,7 +35,7 @@ function start(cluster) {
 try {
   if (!bin || !path.isAbsolute(bin) || !existsSync(path.join(bin, 'pg_ctl'))) throw new Error('Set FRAME_POSTGRES_BIN to the absolute PostgreSQL 17 bin directory.');
   if (!['init', 'start', 'stop'].includes(mode)) throw new Error('Usage: npm run db:local -- init|start|stop');
-  for (const key of ['PGHOST','PGHOSTADDR','PGPORT','PGDATABASE','PGSERVICE','PGSERVICEFILE','PGOPTIONS']) {
+  for (const key of ['PGHOST','PGHOSTADDR','PGPORT','PGDATABASE','PGSERVICE','PGSERVICEFILE','PGOPTIONS','PGUSER','PGUSERNAME','PGPASSWORD']) {
     if (process.env[key]) throw new Error('Remove inherited PostgreSQL connection overrides.');
   }
   if (mode === 'init') {
