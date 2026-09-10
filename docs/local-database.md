@@ -61,6 +61,10 @@ explicit test URL and fails if it is absent. Connection overrides such as `PGHOS
 `PGPORT`, `PGSERVICE`, and `PGOPTIONS` are rejected. The runner checks actual server
 identity before writing. Tests create UUID-scoped fixtures rather than truncating
 tables, so repeat runs accumulate disposable test records.
+The database command runs test files sequentially. Asset tests use their own
+temporary image directory and remove only those generated fixture files; they
+never touch the development image directory. Their UUID-scoped metadata remains
+in the isolated test database, like the other integration fixtures.
 Use `127.0.0.1` (recommended) or `localhost`. The pinned postgres 3.4.9 driver
 misparses bracketed IPv6 URLs; the resolved-destination check rejects those safely.
 Native tests additionally require the server's actual port to be 54342. Unknown

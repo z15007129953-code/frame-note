@@ -23,6 +23,11 @@ Independently tested project/share authorization and normalized pin coordinates
 are implemented. PostgreSQL now persists projects, memberships, presentations,
 screen ordering and immutable version metadata. Repository operations resolve
 current persisted roles and expiry; they do not trust a caller-supplied role.
+The private image adapter validates and normalizes PNG/JPEG/WebP with bounded
+sizes and dimensions, strips source metadata, and stores immutable local files.
+Asset upload/read is connected to persisted membership and project storage
+quotas; uploaded assets can be attached to screen versions. This is a server-side
+service API, not yet an HTTP endpoint or browser upload screen.
 These are application foundations, not a completed review workflow.
 
 Install and run foundation tests with Node 24:
@@ -38,9 +43,10 @@ then run `npm run db:migrate` and `npm run test:db` (Docker requires the documen
 transport flag). Development and tests use separate local databases. Database
 tests add isolated fixtures; they do not reset existing data.
 
-Next milestones add local signed image storage, Auth.js/demo sessions, comments,
+Next milestones add signed HTTP image operations, Auth.js/demo sessions, comments,
 protected shares, the Next.js/React interface, and browser acceptance tests.
-Third-party dependencies and assets will retain their required license notices.
+See [image storage policy](docs/local-images.md) and
+[third-party dependencies](THIRD_PARTY.md) for storage limits and license notes.
 
 See [the local acceptance checklist](docs/acceptance-zh.md) for the eventual
 user review journey. Passing repository tests is not browser or product acceptance.
