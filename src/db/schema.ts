@@ -22,6 +22,15 @@ export const projectMembers = pgTable('project_members', {
   foreignKey({ columns: [t.workspaceId, t.memberId], foreignColumns: [members.workspaceId, members.id] }),
   check('project_members_role_check', sql`${t.role} in ('viewer', 'collaborator', 'owner')`),
 ]);
+export const demoSessions = pgTable('demo_sessions', {
+  tokenHash: text('token_hash').primaryKey(), workspaceId: uuid('workspace_id').notNull(),
+  projectId: uuid('project_id').notNull(), memberId: uuid('member_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(), createdAt: createdAt(),
+}, t => [
+  foreignKey({ columns: [t.workspaceId, t.projectId], foreignColumns: [projects.workspaceId, projects.id] }),
+  foreignKey({ columns: [t.workspaceId, t.memberId], foreignColumns: [members.workspaceId, members.id] }),
+  check('demo_sessions_token_hash_check', sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
+]);
 export const presentations = pgTable('presentations', {
   id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(), title: title(), createdAt: createdAt(),
 }, t => [unique().on(t.workspaceId, t.projectId, t.id),
