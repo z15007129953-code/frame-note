@@ -4,6 +4,21 @@ import { canAccess, type AccessInput, type Actor, type Capability, type Role, ty
 
 const capabilities: Capability[] = ['view', 'comment', 'edit', 'manage'];
 const roles: Role[] = ['viewer', 'collaborator', 'owner'];
+const roleGrants: Record<Role, readonly Capability[]> = {
+  viewer: ['view', 'comment'],
+  collaborator: ['view', 'comment', 'edit'],
+  owner: ['view', 'comment', 'edit', 'manage'],
+};
+const shareGrants: Record<string, readonly Capability[]> = {
+  'public:false:false': ['view'],
+  'public:false:true': ['view', 'comment'],
+  'public:true:false': ['view'],
+  'public:true:true': ['view', 'comment'],
+  'token:false:false': [],
+  'token:false:true': [],
+  'token:true:false': ['view'],
+  'token:true:true': ['view', 'comment'],
+};
 const actor: Actor = { id: 'person-1', workspaceId: 'workspace-1', projectId: 'project-1', role: 'viewer', expiresAt: null };
 const share: Share = { projectId: 'project-1', presentationId: 'presentation-1', mode: 'public', tokenVerified: false, allowComments: false, expiresAt: null, revoked: false };
 function input(overrides: Partial<AccessInput> = {}): AccessInput {
@@ -14,7 +29,7 @@ function runtime(value: unknown): boolean { return canAccess(value as AccessInpu
 for (const role of roles) {
   for (const capability of capabilities) {
     test(`${role} capability ${capability}`, () => {
-      const expected = capability === 'view' || capability === 'comment' || role === 'owner' || (role === 'collaborator' && capability === 'edit');
+      const expected = roleGrants[role].includes(capability);
       assert.equal(canAccess(input({ actor: { ...actor, role }, capability })), expected);
     });
   }
@@ -25,7 +40,7 @@ for (const mode of ['public', 'token'] as const) {
     for (const allowComments of [false, true]) {
       for (const capability of capabilities) {
         test(`${mode} share verified=${tokenVerified} comments=${allowComments}: ${capability}`, () => {
-          const expected = (mode === 'public' || tokenVerified) && (capability === 'view' || (capability === 'comment' && allowComments));
+          const expected = shareGrants[`${mode}:${tokenVerified}:${allowComments}`].includes(capability);
           assert.equal(canAccess(input({ share: { ...share, mode, tokenVerified, allowComments }, capability })), expected);
         });
       }
