@@ -36,14 +36,21 @@ export class ReviewRepository {
   private async authorize(tx: Transaction, workspaceId: string, projectId: string, memberId: string, edit: boolean) {
     // All project operations use this lock order, including reads. Revocation updates
     // serialize against the locked persisted member and project-membership rows.
-    const project = await tx`select id, (expires_at is null or expires_at > current_timestamp) as active
+    const project = await tx`select id
       from projects where workspace_id = ${workspaceId} and id = ${projectId} for update`;
     if (!project.length) throw new ReviewError('not-found');
-    const member = await tx`select id, (expires_at is null or expires_at > current_timestamp) as active
+    const member = await tx`select id
       from members where workspace_id = ${workspaceId} and id = ${memberId} for update`;
     const membership = await tx`select role from project_members
       where workspace_id = ${workspaceId} and project_id = ${projectId} and member_id = ${memberId} for update`;
-    if (!project[0]!.active || !member[0]?.active || !membership.length) throw new ReviewError('forbidden');
+    if (!member.length || !membership.length) throw new ReviewError('forbidden');
+    // Evaluate time in a separate statement after every authorization lock has
+    // been acquired; transaction-start time can be stale after a lock wait.
+    const active = await tx`select (p.expires_at is null or p.expires_at > clock_timestamp())
+      and (m.expires_at is null or m.expires_at > clock_timestamp()) as active
+      from projects p join members m on m.workspace_id = p.workspace_id
+      where p.workspace_id = ${workspaceId} and p.id = ${projectId} and m.id = ${memberId}`;
+    if (!active[0]?.active) throw new ReviewError('forbidden');
     if (edit && membership[0]!.role !== 'collaborator' && membership[0]!.role !== 'owner') throw new ReviewError('forbidden');
   }
 
@@ -56,9 +63,12 @@ export class ReviewRepository {
     ids(workspaceId, memberId);
     const cleanTitle = title(inputTitle);
     return this.connection.sql.begin(async tx => {
-      const member = await tx`select id, (expires_at is null or expires_at > current_timestamp) as active
+      const member = await tx`select id
         from members where workspace_id = ${workspaceId} and id = ${memberId} for update`;
-      if (!member[0]?.active) throw new ReviewError('forbidden');
+      if (!member.length) throw new ReviewError('forbidden');
+      const active = await tx`select (expires_at is null or expires_at > clock_timestamp()) as active
+        from members where workspace_id = ${workspaceId} and id = ${memberId}`;
+      if (!active[0]?.active) throw new ReviewError('forbidden');
       const rows = await tx<Project[]>`insert into projects (workspace_id, title) values (${workspaceId}, ${cleanTitle})
         returning id, workspace_id as "workspaceId", title, expires_at as "expiresAt", created_at as "createdAt"`;
       const project = rows[0]!;

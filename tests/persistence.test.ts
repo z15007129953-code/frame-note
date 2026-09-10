@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { before, after, test } from 'node:test';
-import postgres from 'postgres';
 import { assertTestTarget } from '../src/db/test-target.ts';
+import { assertResolvedTestTarget, assertServerIdentity } from '../src/db/server-identity.ts';
 import { createConnection } from '../src/db/connection.ts';
 import { migrate } from '../src/db/migrate.ts';
 import { ReviewRepository } from '../src/db/review-repository.ts';
@@ -11,14 +11,16 @@ import { ReviewRepository } from '../src/db/review-repository.ts';
 const url = process.env.TEST_DATABASE_URL;
 assert.ok(url, 'Set explicit TEST_DATABASE_URL in .env.local; run npm run db:local -- init first.');
 assertTestTarget(url, process.env);
-const probe = postgres(url, { max: 1 });
-const identity = await probe`select current_database() as name, host(inet_server_addr()) as address`;
-assert.equal(identity[0]?.name, new URL(url).pathname.slice(1));
-assert.ok(['127.0.0.1', '::1'].includes(identity[0]?.address));
-await probe.end();
-
 const connection = createConnection(url);
 const { sql } = connection;
+try {
+  assertResolvedTestTarget(url, sql.options);
+  const identity = await sql`select current_database() as name, host(inet_server_addr()) as address, inet_server_port() as port`;
+  assertServerIdentity({ name: identity[0]?.name, address: identity[0]?.address, port: identity[0]?.port }, process.env.FRAME_TEST_TRANSPORT);
+} catch (error) {
+  await sql.end();
+  throw error;
+}
 const repository = new ReviewRepository(connection);
 
 before(async () => { await Promise.all([migrate(connection), migrate(connection)]); await migrate(connection); });
@@ -76,6 +78,7 @@ test('owner creation, trimmed titles and reconnect persistence', async () => {
   assert.equal(membership[0]!.role, 'owner');
   const reopened = createConnection(url);
   try {
+    assertResolvedTestTarget(url, reopened.sql.options);
     const rows = await new ReviewRepository(reopened).listScreens(f.workspaceId, f.project.id, f.presentation.id, f.memberId);
     assert.deepEqual(rows.map(row => row.id), [f.screen.id]);
   } finally { await reopened.sql.end(); }
@@ -118,6 +121,41 @@ test('expired projects deny reads and writes', async () => {
   await assert.rejects(repository.listScreens(f.workspaceId, f.project.id, f.presentation.id, f.memberId), code('forbidden'));
   await assert.rejects(repository.createScreen(f.workspaceId, f.project.id, f.presentation.id, f.memberId, 'Denied'), code('forbidden'));
 });
+
+for (const scope of ['project', 'member', 'creator'] as const) {
+  test(`${scope} expiry during a lock wait denies access after lock acquisition`, async () => {
+    const f = await fixture();
+    const table = scope === 'project' ? 'projects' : 'members';
+    const id = scope === 'project' ? f.project.id : f.memberId;
+    await sql`update ${sql(table)} set expires_at = clock_timestamp() + interval '2 seconds' where id = ${id}`;
+    const blocker = await sql.reserve();
+    let pending: Promise<unknown> | undefined;
+    try {
+      await blocker`begin`;
+      const pid = await blocker`select pg_backend_pid() as pid`;
+      await blocker`select id from ${blocker(table)} where id = ${id} for update`;
+      pending = (scope === 'creator'
+        ? repository.createProject(f.workspaceId, f.memberId, 'Expired creator')
+        : repository.listScreens(f.workspaceId, f.project.id, f.presentation.id, f.memberId))
+        .then(value => ({ value }), error => ({ error }));
+      let blocked = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const rows = await sql`select exists(select 1 from pg_stat_activity where ${pid[0]!.pid} = any(pg_blocking_pids(pid))) as blocked`;
+        if (rows[0]!.blocked) { blocked = true; break; }
+        await sql`select pg_sleep(0.01)`;
+      }
+      assert.ok(blocked, 'Repository transaction must actually be blocked before expiry');
+      await blocker`select pg_sleep(greatest(extract(epoch from expires_at - clock_timestamp()), 0)::double precision + 0.02) from ${blocker(table)} where id = ${id}`;
+      await blocker`commit`;
+      const result = await pending as { error?: unknown };
+      assert.ok(code('forbidden')(result.error), 'Access must use clock after lock acquisition');
+    } finally {
+      await blocker`rollback`;
+      blocker.release();
+      if (pending) await pending;
+    }
+  });
+}
 
 test('reordering requires exact permutation and rejection preserves prior order', async () => {
   const f = await fixture();
