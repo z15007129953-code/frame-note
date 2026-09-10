@@ -17,22 +17,30 @@ Create a presentation, upload images, reorder screens, share a presentation,
 place and resolve pin comments, upload a second version, and compare versions.
 The finished workflow must use persisted data, not hard-coded success responses.
 
-## First implementation milestone
+## Implemented foundations
 
-Establish independently tested project/share authorization and normalized pin
-coordinates. These are domain foundations only, not a completed application.
+Independently tested project/share authorization and normalized pin coordinates
+are implemented. PostgreSQL now persists projects, memberships, presentations,
+screen ordering and immutable version metadata. Repository operations resolve
+current persisted roles and expiry; they do not trust a caller-supplied role.
+These are application foundations, not a completed review workflow.
 
-Run foundation tests with Node 24:
+Install and run foundation tests with Node 24:
 
 ```sh
+npm ci
 npm test
 npm run typecheck
 ```
 
-Next milestones add PostgreSQL/Drizzle persistence, local signed image storage,
-Auth.js/demo sessions, the Next.js/React interface, and browser acceptance tests.
+For real database tests, follow [local database setup](docs/local-database.md),
+then run `npm run db:migrate` and `npm run test:db` (Docker requires the documented
+transport flag). Development and tests use separate local databases. Database
+tests add isolated fixtures; they do not reset existing data.
+
+Next milestones add local signed image storage, Auth.js/demo sessions, comments,
+protected shares, the Next.js/React interface, and browser acceptance tests.
 Third-party dependencies and assets will retain their required license notices.
 
-Install the pinned development tools with `npm ci` before running type checks.
 See [the local acceptance checklist](docs/acceptance-zh.md) for the eventual
-user review journey. The domain tests do not yet demonstrate persisted workflows.
+user review journey. Passing repository tests is not browser or product acceptance.
