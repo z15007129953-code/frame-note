@@ -56,6 +56,9 @@ test('accepts fractional far edges without floating-point drift', () => {
   const rect = { left: 0.1, top: 0.1, width: 0.2, height: 0.2 };
   assert.deepEqual(normalizePin({ x: rect.left + rect.width, y: rect.top + rect.height }, rect), { x: 1, y: 1 });
 });
+test('rejects outside subnormal clicks before normalization underflows', () => {
+  assert.equal(normalizePin({ x: -Number.MIN_VALUE, y: 1 }, { left: 0, top: 0, width: 2, height: 2 }), null);
+});
 test('does not mutate frozen inputs', () => {
   const pin = Object.freeze({ x: 0.5, y: 0.5 });
   const rect = Object.freeze(image);
