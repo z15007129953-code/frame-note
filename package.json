@@ -5,6 +5,11 @@
   "type": "module",
   "engines": { "node": ">=24 <25" },
   "scripts": {
-    "test": "node --test src/domain/*.test.ts"
+    "test": "node --test src/domain/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "5.9.3"
   }
 }
