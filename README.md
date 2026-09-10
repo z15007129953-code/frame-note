@@ -4,7 +4,8 @@ Design review that stays attached to the work.
 
 An independently authored application for presentations, image-based feedback,
 and screen-version comparison. MIT-licensed. This repository is in early
-development: there is no runnable user interface or public release yet.
+development: the first local browser workflow is runnable; there is no public
+release yet. This is not the completed design-review product.
 
 ## Delivery
 
@@ -26,8 +27,9 @@ current persisted roles and expiry; they do not trust a caller-supplied role.
 The private image adapter validates and normalizes PNG/JPEG/WebP with bounded
 sizes and dimensions, strips source metadata, and stores immutable local files.
 Asset upload/read is connected to persisted membership and project storage
-quotas; uploaded assets can be attached to screen versions. This is a server-side
-service API, not yet an HTTP endpoint or browser upload screen.
+quotas. The browser now creates isolated 24-hour demos, presentations and screens,
+uploads private images, adds immutable versions, switches versions, and reloads
+persisted work. Each image asset and its version are saved in one transaction.
 These are application foundations, not a completed review workflow.
 
 Install and run foundation tests with Node 24:
@@ -43,8 +45,25 @@ then run `npm run db:migrate` and `npm run test:db` (Docker requires the documen
 transport flag). Development and tests use separate local databases. Database
 tests add isolated fixtures; they do not reset existing data.
 
-Next milestones add signed HTTP image operations, Auth.js/demo sessions, comments,
-protected shares, the Next.js/React interface, and browser acceptance tests.
+## Run the local browser preview
+
+After database setup and migrations, run `npm run dev` and open
+http://127.0.0.1:4310. Click **Start a private demo**, create a presentation,
+give a screen a title and choose an image, then click **Upload screen**.
+Use **Upload new version** and the **Version** selector to review revisions.
+Refresh to check persistence. **Sign out** revokes this demo's access; it is not
+a permanent account and there is no recovery after logout/24-hour expiry yet.
+
+`npm run test:browser` runs local Chrome journeys against the running server.
+It creates disposable demo workspaces in the development database. `npm run build`
+checks the production build; `npm start` serves it locally after stopping dev.
+The browser is bound to loopback, not the public network.
+
+For this machine's retained worktrees, see [the current checkpoint](docs/development-status.md)
+for the private-config reference. Do not initialize competing databases.
+
+Next milestones add comments, protected shares, comparison, permanent login,
+signed grants, resource cleanup and full acceptance/accessibility testing.
 See [image storage policy](docs/local-images.md) and
 [third-party dependencies](THIRD_PARTY.md) for storage limits and license notes.
 

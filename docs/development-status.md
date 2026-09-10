@@ -1,79 +1,79 @@
 # Development checkpoint — 10 September 2026
 
-Frame Note has domain foundations, PostgreSQL-backed review repositories and
-a private local image upload/read service. There is no runnable review UI,
-HTTP upload endpoint, public repository or hosted
-website. Do not treat this checkpoint as product acceptance.
+Frame Note now has a runnable first local browser slice. It is **not** the
+finished review product and has not received user acceptance. No public remote,
+cloud deployment or domain configuration is part of this checkpoint.
 
-## Implemented
+## Working browser journey
 
-- Independent local Git history, MIT license, design context and acceptance list.
-- Server-fact access policy for viewer/collaborator/owner and public/token shares.
-- Tenant-scoped relationships, persisted membership/role checks, expiry and
-  revocation. Authentication/session resolution is still pending.
-- Image-relative normalized pins and projection after resizing; image bounds,
-  invalid geometry, fractional edges and out-of-bounds underflow are checked.
-- Pinned TypeScript 5.9.3 / Node 24 types and reproducible npm development lockfile.
-- Typed Drizzle schema and transactional checksum-verified PostgreSQL migrations.
-- Persisted projects, owner memberships, presentations and ordered screens.
-- Immutable version metadata, idempotent creation and concurrent version numbering.
-- Atomic exact-permutation reordering and 100-screen / 50-version limits.
-- Separate local PostgreSQL 17 development/test clusters and optional Compose setup.
-- Strict local test-target, resolved-driver destination and server-identity checks.
-- Fully decoded/re-encoded PNG/JPEG/WebP images, orientation correction, stripped
-  source metadata, 10 MiB input/output and bounded pixel/dimension limits.
-- Private immutable filesystem files, strict opaque keys, descriptor-based reads,
-  symlink/hard-link refusal and root/permission-change detection.
-- Persisted asset upload/read with live membership checks, 500-asset / 100 MiB
-  project quotas and expiry rechecks after locks and filesystem I/O.
+Start a private demo → create presentation → name and upload a screen → reload
+persisted image → upload another version → switch versions → sign out.
+Invalid images show a useful error; the created empty screen can be finished
+through the new-version form. Image read failures have a retry action. Session
+loss returns to the demo entry, clearing pending files and titles.
 
-## Verification
+Next.js 16.3.4 / React 19.3.0 call permission-checked Node routes. Random 32-byte
+demo tokens are stored only as SHA256 hashes; cookies are HttpOnly, SameSite
+Strict and expire after 24 hours. Writes require the exact configured Origin.
+Actor IDs come exclusively from the session, never request fields. Images have
+private no-store responses, with membership checked on every request.
 
-At `d35e02f`, Node 24 ran 343 unit tests and 37 real PostgreSQL integration tests
-(19 review + 18 image-asset cases), all passing with no skips; strict TypeScript
-checking passed. Upload-to-version and reopened filesystem/database reads are
-verified. Earlier development schema migration and repeated no-op migration
-passed; this image milestone changes no schema. Native database checks run on
-loopback ports 54341 (development) and 54342 (tests). Docker identity policy has
-unit coverage but has not been exercised against a live Docker installation.
+Image assets and version rows are saved in one database transaction after
+screen scope, permission and capacity checks. Real PNG/JPEG/WebP is fully
+decoded, normalized and stripped of source metadata. Prior versions remain
+immutable. Filesystem failures or ambiguous commits retain private orphan files
+to avoid deleting possibly committed data; reconciliation is still pending.
 
-Specification review approved the persistence milestone after correcting expiry
-checks following authorization lock waits. The important quality-review finding
-was also fixed: version creation and reordering recheck expiry after downstream
-resource locks. Six additional regressions cover project/member expiry while
-waiting for screen or asset locks. Final independent quality re-review approved
-local integration with no critical or important findings remaining. Partial
-initialization recovery remains manual and is documented in the setup guide.
+## Verified checkpoint
 
-The image validator/filesystem adapter and asset service both passed independent
-specification and quality reviews, with no critical or important findings left.
+- 347 unit tests; 55 real PostgreSQL integration tests, no skips.
+- Six Chrome journeys pass against both development and production servers;
+  browser tests cover persistence/version selection, second-session isolation,
+  cross-origin refusal, invalid-image recovery, image retry, busy selection,
+  new-session draft isolation and session-expiry recovery.
+- Strict TypeScript and production build checks passed. Build tracing excludes
+  runtime uploads; no `.local` or `.env` paths remain in the API trace manifests.
+- Desktop and 390px viewport screenshots inspected. This is browser emulation,
+  not a real iPhone/Android or full accessibility certification.
+- Independent backend specification and code-quality reviews performed.
+  Client draft isolation findings were reproduced and repaired with browser tests.
 
-## Local workspace handoff
+## Limits and honest gaps
 
-The initialized native databases and private `.env.local` currently belong to
-the retained `.worktrees/persistence` checkout. Database lifecycle commands run
-there. Image-backend tests use `.worktrees/image-storage` with
-`node --env-file=../persistence/.env.local --test --test-concurrency=1 tests/*.test.ts`.
-Do not initialize competing clusters on the same ports from the primary checkout,
-move its data directories, or remove the worktree. Cluster markers intentionally
-bind to the absolute original path. No credentials or database files are tracked.
+- 100 presentations/project, 100 screens/presentation, 50 versions/screen.
+- 500 image assets / 100 MiB canonical image bytes per project.
+- 10 MiB upload limit, 4096-byte JSON limit, 30-second request-body deadline,
+  two simultaneous image uploads per server process.
+- The 1000-session cap only counts session rows still present. Logout removes
+  the session but retains workspace data. It does **not** bound cumulative demo
+  workspaces/files. No automatic expiry/orphan cleanup or global disk cap yet.
+- Local-only preview; no internet-facing rate limiting or permanent accounts.
+- No persisted comments/resolution, protected sharing, comparison, presence,
+  signed grants, cleanup workflow, presentation mode or UI reordering yet.
+- Uploads have no idempotency key: after an ambiguous network failure, inspect
+  current versions before retrying. Screen creation precedes image upload.
+- Demo logout/expiry removes access; permanent recovery/export is not implemented.
+  Use disposable test artwork, not irreplaceable or confidential source files.
 
-For a fresh clone, follow [local database setup](local-database.md). No cloud
-account or custom domain is necessary.
+## This machine's retained workspaces
 
-## Next work
+The native development/test PostgreSQL clusters and private `.env.local` belong
+to `.worktrees/persistence`. Run their lifecycle commands there; do not move data
+or initialize competing clusters on ports 54341/54342. Images for this browser
+preview belong to `.worktrees/browser-workspace/.local/images`.
 
-1. Signed demo/auth sessions and protected share lifecycle.
-2. Signed HTTP image operations, request limits and explicit orphan/expiry cleanup.
-3. Persisted pin comments, resolution, mentions, activity and presence.
-4. Impeccable craft interface, presentation mode, comparison and mobile support.
-5. Real browser acceptance, accessibility, documentation and production build.
-6. User acceptance, then GitHub publication and CI verification.
+From `.worktrees/browser-workspace`:
 
-The asset service verifies file contents before saving ready metadata. Actor IDs
-must still come from authenticated server sessions, never trusted request fields.
-Failed writes/ambiguous database commits retain private orphan files to avoid
-deleting potentially committed data. Reconciliation is deferred, documented in
-[local image storage](local-images.md), and required before full demo acceptance.
+```sh
+FRAME_ENV_FILE=../persistence/.env.local npm run dev
+# Open http://127.0.0.1:4310
+npm run test:browser
+node --env-file=../persistence/.env.local --test --test-concurrency=1 tests/*.test.ts
+```
 
-No cloud provisioning, DNS changes or hosted deployment is in the current scope.
+For a fresh clone, follow [local database setup](local-database.md), apply
+migrations, then `npm run dev`; Next reads the clone's `.env.local` normally.
+No credentials, image uploads or database data are tracked in Git.
+
+Next: comments and sharing, comparison, cleanup, permanent login and complete
+acceptance/accessibility checks. User approval is required before GitHub publication.

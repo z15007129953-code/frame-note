@@ -1,4 +1,5 @@
 import type { Connection } from './connection.ts';
+import type postgres from 'postgres';
 import type { assets } from './schema.ts';
 import type { LocalImageStore } from '../storage/local-image-store.ts';
 import { MAX_IMAGE_BYTES, validateImage } from '../storage/image-validator.ts';
@@ -26,24 +27,50 @@ export class AssetRepository {
     const source = Buffer.isBuffer(bytes) && bytes.length <= MAX_IMAGE_BYTES ? Buffer.from(bytes) : undefined;
     return this.connection.sql.begin(async tx => {
       await authorize(tx, workspaceId, projectId, memberId, true);
-      if (!source) throw new StorageError('invalid-image');
-      const image = await validateImage(source, mime);
-      const totals = await tx`select count(*)::int as count, coalesce(sum(byte_size), 0)::text as bytes
-        from assets where workspace_id = ${workspaceId} and project_id = ${projectId}`;
-      if (totals[0]!.count >= MAX_PROJECT_ASSETS || BigInt(totals[0]!.bytes) + BigInt(image.byteSize) > MAX_PROJECT_BYTES) {
-        throw new ReviewError('invalid');
-      }
-      await assertActive(tx, workspaceId, projectId, memberId);
-      const key = await this.store.put(image);
-      await assertActive(tx, workspaceId, projectId, memberId);
-      // Retain private orphans on failure: an ambiguous commit must never delete a committed file.
-      const rows = await tx<AssetRow[]>`insert into assets
-        (workspace_id, project_id, storage_key, mime_type, byte_size, width, height, status)
-        values (${workspaceId}, ${projectId}, ${key}, ${image.mimeType}, ${image.byteSize}, ${image.width}, ${image.height}, 'ready')
-        returning id, workspace_id as "workspaceId", project_id as "projectId", storage_key as "storageKey",
-          mime_type as "mimeType", byte_size::text as "byteSize", width, height, status, created_at as "createdAt"`;
-      return { ...rows[0]!, byteSize: BigInt(rows[0]!.byteSize) };
+      return this.persist(tx, workspaceId, projectId, memberId, source, mime);
     });
+  }
+
+  async uploadVersion(workspaceId: string, projectId: string, screenId: string, memberId: string, bytes: Buffer, mime: string): Promise<{ id: string; number: number }> {
+    assertReviewIds(workspaceId, projectId, screenId, memberId);
+    const source = Buffer.isBuffer(bytes) && bytes.length <= MAX_IMAGE_BYTES ? Buffer.from(bytes) : undefined;
+    return this.connection.sql.begin(async tx => {
+      await authorize(tx, workspaceId, projectId, memberId, true);
+      const screen = await tx`select id from screens
+        where workspace_id = ${workspaceId} and project_id = ${projectId} and id = ${screenId} for update`;
+      await assertActive(tx, workspaceId, projectId, memberId);
+      if (!screen.length) throw new ReviewError('not-found');
+      const latest = await tx`select coalesce(max(number), 0)::int as number from versions
+        where workspace_id = ${workspaceId} and project_id = ${projectId} and screen_id = ${screenId}`;
+      if (latest[0]!.number >= 50) throw new ReviewError('invalid');
+      const asset = await this.persist(tx, workspaceId, projectId, memberId, source, mime);
+      const rows = await tx<{ id: string; number: number }[]>`insert into versions
+        (workspace_id, project_id, screen_id, asset_id, number)
+        values (${workspaceId}, ${projectId}, ${screenId}, ${asset.id}, ${latest[0]!.number + 1})
+        returning id, number`;
+      return rows[0]!;
+    });
+  }
+
+  /** Caller holds the project authorization lock; asset and attachment share its transaction. */
+  private async persist(tx: postgres.TransactionSql, workspaceId: string, projectId: string, memberId: string, source: Buffer | undefined, mime: string): Promise<Asset> {
+    if (!source) throw new StorageError('invalid-image');
+    const image = await validateImage(source, mime);
+    const totals = await tx`select count(*)::int as count, coalesce(sum(byte_size), 0)::text as bytes
+      from assets where workspace_id = ${workspaceId} and project_id = ${projectId}`;
+    if (totals[0]!.count >= MAX_PROJECT_ASSETS || BigInt(totals[0]!.bytes) + BigInt(image.byteSize) > MAX_PROJECT_BYTES) {
+      throw new ReviewError('invalid');
+    }
+    await assertActive(tx, workspaceId, projectId, memberId);
+    const key = await this.store.put(image);
+    await assertActive(tx, workspaceId, projectId, memberId);
+    // Retain private orphans on failure: an ambiguous commit must never delete a committed file.
+    const rows = await tx<AssetRow[]>`insert into assets
+      (workspace_id, project_id, storage_key, mime_type, byte_size, width, height, status)
+      values (${workspaceId}, ${projectId}, ${key}, ${image.mimeType}, ${image.byteSize}, ${image.width}, ${image.height}, 'ready')
+      returning id, workspace_id as "workspaceId", project_id as "projectId", storage_key as "storageKey",
+        mime_type as "mimeType", byte_size::text as "byteSize", width, height, status, created_at as "createdAt"`;
+    return { ...rows[0]!, byteSize: BigInt(rows[0]!.byteSize) };
   }
 
   async read(workspaceId: string, projectId: string, memberId: string, assetId: string): Promise<ImageRead> {

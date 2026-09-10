@@ -58,7 +58,8 @@ export class LocalImageStore {
     try {
       await this.#assertRoot();
       const key = `${randomUUID()}.${image.extension}`;
-      const handle = await open(join(this.#canonical, key), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      // User uploads are runtime data, never build-time bundled resources.
+      const handle = await open(/* turbopackIgnore: true */ join(/* turbopackIgnore: true */ this.#canonical, key), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
       try {
         const actual = await handle.stat();
         if (!actual.isFile() || actual.nlink !== 1) throw new StorageError('storage-failed');

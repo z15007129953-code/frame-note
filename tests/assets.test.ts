@@ -40,6 +40,100 @@ async function upload(f: Awaited<ReturnType<typeof fixture>>) {
   return repository.upload(f.workspaceId, f.projectId, f.memberId, png, 'image/png');
 }
 
+async function screenFixture() {
+  const f = await fixture();
+  const presentation = await reviews.createPresentation(f.workspaceId, f.projectId, f.memberId, 'Versions');
+  const screen = await reviews.createScreen(f.workspaceId, f.projectId, presentation.id, f.memberId, 'Screen');
+  return { ...f, screenId: screen.id };
+}
+
+test('uploadVersion commits two distinct readable assets and preserves the first version', async () => {
+  const f = await screenFixture();
+  const first = await repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, png, 'image/png');
+  const original = (await sql`select * from versions where id = ${first.id}`)[0]!;
+  const secondPng = await sharp({ create: { width: 40, height: 50, channels: 3, background: '#abcdef' } }).png().toBuffer();
+  const second = await repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, secondPng, 'image/png');
+  assert.equal(first.number, 1); assert.equal(second.number, 2);
+  assert.notEqual(first.id, second.id);
+  assert.deepEqual((await sql`select * from versions where id = ${first.id}`)[0], original);
+  const rows = await sql`select v.asset_id, a.status from versions v join assets a on a.id = v.asset_id
+    where v.screen_id = ${f.screenId} order by v.number`;
+  assert.equal(rows.length, 2); assert.notEqual(rows[0]!.asset_id, rows[1]!.asset_id);
+  assert.ok(rows.every(row => row.status === 'ready'));
+  assert.equal((await repository.read(f.workspaceId, f.projectId, f.memberId, rows[0]!.asset_id)).width, 20);
+  assert.equal((await repository.read(f.workspaceId, f.projectId, f.memberId, rows[1]!.asset_id)).width, 40);
+  assert.equal((await sql`select count(*)::int as count from assets where project_id = ${f.projectId}`)[0]!.count, 2);
+});
+
+test('uploadVersion rejects missing and foreign screens before decoding or writing an asset', async () => {
+  const f = await screenFixture(); const foreign = await screenFixture();
+  const otherProject = await reviews.createProject(f.workspaceId, f.memberId, 'Other project');
+  const otherPresentation = await reviews.createPresentation(f.workspaceId, otherProject.id, f.memberId, 'Other');
+  const otherScreen = await reviews.createScreen(f.workspaceId, otherProject.id, otherPresentation.id, f.memberId, 'Other');
+  const files = await readdir(directory);
+  for (const screenId of [randomUUID(), foreign.screenId, otherScreen.id]) {
+    await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, screenId, f.memberId, png, 'image/png'), code('not-found'));
+    await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, screenId, f.memberId, Buffer.from('invalid'), 'image/png'), code('not-found'));
+  }
+  assert.deepEqual(await readdir(directory), files);
+  assert.equal((await sql`select count(*)::int as count from assets where project_id = ${f.projectId}`)[0]!.count, 0);
+});
+
+test('uploadVersion serializes the last available version and rejects full screens before decoding or storage', async () => {
+  const f = await screenFixture();
+  await sql`with seeded as (
+    insert into assets (workspace_id,project_id,storage_key,mime_type,byte_size,width,height,status)
+    select ${f.workspaceId}::uuid, ${f.projectId}::uuid, gen_random_uuid()::text, 'image/png', 1, 1, 1, 'ready'
+    from generate_series(1,49) returning id
+  ) insert into versions (workspace_id,project_id,screen_id,asset_id,number)
+    select ${f.workspaceId}::uuid, ${f.projectId}::uuid, ${f.screenId}::uuid, id, row_number() over () from seeded`;
+  const files = await readdir(directory);
+  const results = await Promise.allSettled([
+    repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, png, 'image/png'),
+    repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, png, 'image/png'),
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.ok(results.some(result => result.status === 'rejected' && code('invalid')(result.reason)));
+  assert.equal((await readdir(directory)).length, files.length + 1);
+  const fullFiles = await readdir(directory);
+  await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, Buffer.from('invalid'), 'image/png'), code('invalid'));
+  assert.deepEqual(await readdir(directory), fullFiles);
+  assert.equal((await sql`select count(*)::int as count from assets where project_id = ${f.projectId}`)[0]!.count, 50);
+  assert.equal((await sql`select count(*)::int as count from versions where screen_id = ${f.screenId}`)[0]!.count, 50);
+});
+
+test('uploadVersion uses persisted editing permission before decoding or storing bytes', async () => {
+  const f = await screenFixture(); const foreign = await fixture();
+  const files = await readdir(directory);
+  await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, foreign.memberId, png, 'image/png'), code('forbidden'));
+  await sql`update project_members set role = 'viewer' where project_id = ${f.projectId} and member_id = ${f.memberId}`;
+  await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, Buffer.from('invalid'), 'image/png'), code('forbidden'));
+  await sql`delete from project_members where project_id = ${f.projectId} and member_id = ${f.memberId}`;
+  await assert.rejects(repository.uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, png, 'image/png'), code('forbidden'));
+  assert.deepEqual(await readdir(directory), files);
+  assert.equal((await sql`select count(*)::int as count from assets where project_id = ${f.projectId}`)[0]!.count, 0);
+});
+
+test('uploadVersion rechecks expiry after real file I/O and rolls back all database writes', async t => {
+  const f = await screenFixture();
+  await sql`update members set expires_at = clock_timestamp() + interval '1 second' where id = ${f.memberId}`;
+  const delayedStore = await LocalImageStore.open(directory);
+  const original = delayedStore.put.bind(delayedStore);
+  t.mock.method(delayedStore, 'put', async (input: Parameters<typeof original>[0]) => {
+    const key = await original(input);
+    await sql`select pg_sleep(greatest(extract(epoch from expires_at - clock_timestamp()), 0)::double precision + 0.02)
+      from members where id = ${f.memberId}`;
+    return key;
+  });
+  const files = await readdir(directory);
+  await assert.rejects(new AssetRepository(connection, delayedStore)
+    .uploadVersion(f.workspaceId, f.projectId, f.screenId, f.memberId, png, 'image/png'), code('forbidden'));
+  assert.equal((await sql`select count(*)::int as count from assets where project_id = ${f.projectId}`)[0]!.count, 0);
+  assert.equal((await sql`select count(*)::int as count from versions where screen_id = ${f.screenId}`)[0]!.count, 0);
+  // An uncertain transaction outcome must never trigger destructive file cleanup.
+  assert.equal((await readdir(directory)).length, files.length + 1);
+});
+
 test('real uploaded image persists, reopens, and can become a screen version', async () => {
   const f = await fixture(); const image = await upload(f);
   assert.equal(image.status, 'ready');

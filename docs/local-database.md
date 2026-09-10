@@ -76,7 +76,7 @@ is provided. Back up important data before schema changes.
 
 ## Current limitations
 
-These are database/repository checks, not browser acceptance. No HTTP server,
-sign-in, real image upload, comments, or version-comparison UI is provided by this
-milestone. Asset metadata is only trusted after the future storage adapter has
-verified file contents; clients must never directly insert `ready` assets.
+Database/repository tests are not product acceptance. The local browser preview
+now supports demo sessions, real image upload and version selection; comments,
+protected shares and side-by-side comparison remain pending. Only the image
+adapter may insert verified `ready` assets; clients must never do so directly.

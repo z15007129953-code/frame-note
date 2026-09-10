@@ -9,6 +9,11 @@ remain independent and are not replaced by the repository's license.
 - `drizzle-orm` 0.45.2 — Apache-2.0; database schema/types.
 - `postgres` 3.4.9 — Unlicense; PostgreSQL client.
 - `zod` 4.5.4 — MIT; input schemas.
+- `next` 16.3.4 and `react` / `react-dom` 19.3.0 — MIT; local web application.
+- `@fontsource/manrope` and `@fontsource/hanken-grotesk` 5.3.0 — SIL OFL-1.1;
+  locally served fonts. Preserve each package's `LICENSE` when distributing fonts.
+- `@playwright/test` 1.63.0 — Apache-2.0; browser tests. React development types
+  retain their MIT package licenses.
 - TypeScript and Node.js development types retain their package licenses.
 
 `package-lock.json` records exact dependency versions and integrity hashes.

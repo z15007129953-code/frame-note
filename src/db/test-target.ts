@@ -1,4 +1,4 @@
-export function assertTestTarget(value: unknown, overrides: NodeJS.ProcessEnv = process.env): string {
+export function assertTestTarget(value: unknown, overrides: Record<string, string | undefined> = process.env): string {
   if (['PGHOST', 'PGHOSTADDR', 'PGPORT', 'PGDATABASE', 'PGSERVICE', 'PGSERVICEFILE', 'PGOPTIONS', 'PGUSER', 'PGUSERNAME', 'PGPASSWORD'].some(key => overrides[key])) {
     throw new Error('Remove PostgreSQL connection overrides before testing.');
   }
