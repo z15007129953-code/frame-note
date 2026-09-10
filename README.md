@@ -26,8 +26,13 @@ Run foundation tests with Node 24:
 
 ```sh
 npm test
+npm run typecheck
 ```
 
 Next milestones add PostgreSQL/Drizzle persistence, local signed image storage,
 Auth.js/demo sessions, the Next.js/React interface, and browser acceptance tests.
 Third-party dependencies and assets will retain their required license notices.
+
+Install the pinned development tools with `npm ci` before running type checks.
+See [the local acceptance checklist](docs/acceptance-zh.md) for the eventual
+user review journey. The domain tests do not yet demonstrate persisted workflows.
