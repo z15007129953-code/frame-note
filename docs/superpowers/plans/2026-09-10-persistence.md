@@ -39,7 +39,7 @@
 
 - [x] Independent spec review, then quality review; fix important findings and rerun.
 - [x] Document exact setup, migrate/test commands, test results and limitations.
-- [ ] Integrate locally, preserve feature branches. No remote creation/push and no hosted deployment.
+- [x] Integrate locally, preserve feature branches. No remote creation/push and no hosted deployment.
 
 ### Verification checkpoint
 
@@ -49,6 +49,10 @@ integration. Native clusters and private configuration remain in the persistence
 worktree. Docker policy is unit-tested, not live-Docker tested. IPv6 URL parsing
 in postgres 3.4.9 fails closed; use IPv4 or localhost. See local database docs for
 partial-initialization recovery and runtime setup.
+
+Primary checkout fast-forwarded to the persistence milestone; fresh `npm ci`,
+313 unit tests and strict typechecking passed there. Both feature branches and
+the initialized persistence worktree are retained. No remote is configured.
 
 ## Deferred acceptance work
 
