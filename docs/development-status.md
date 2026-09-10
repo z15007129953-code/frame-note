@@ -22,7 +22,10 @@ Access policy passed independent specification and quality reviews. The quality
 review's minor test-oracle concern was addressed with literal permission tables.
 Pin review identified fractional-edge rejection and subnormal-coordinate underflow;
 both have regression tests and fixes. Independent pin specification re-review
-passed after rerunning all 275 tests and typechecking. Final quality review is pending.
+passed after rerunning all 275 tests and typechecking. Final quality review found
+one minor numerical-collapse case; positive dimensions whose endpoints round back
+to their origin now fail closed, with two additional red/green regressions.
+The latest verification has 277 passing tests and a passing strict typecheck.
 
 ## Next work
 

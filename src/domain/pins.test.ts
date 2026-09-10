@@ -59,6 +59,15 @@ test('accepts fractional far edges without floating-point drift', () => {
 test('rejects outside subnormal clicks before normalization underflows', () => {
   assert.equal(normalizePin({ x: -Number.MIN_VALUE, y: 1 }, { left: 0, top: 0, width: 2, height: 2 }), null);
 });
+for (const rect of [
+  { left: 1, top: 0, width: Number.MIN_VALUE, height: 2 },
+  { left: 0, top: 1, width: 2, height: Number.MIN_VALUE },
+]) {
+  test(`rejects numerically collapsed rectangle ${JSON.stringify(rect)}`, () => {
+    assert.equal(normalizePin({ x: rect.left, y: rect.top }, rect), null);
+    assert.equal(projectPin({ x: 0, y: 0 }, rect), null);
+  });
+}
 test('does not mutate frozen inputs', () => {
   const pin = Object.freeze({ x: 0.5, y: 0.5 });
   const rect = Object.freeze(image);

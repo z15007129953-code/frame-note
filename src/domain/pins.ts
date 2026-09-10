@@ -13,6 +13,8 @@ function rectangle(value: unknown): value is ImageRect {
   return record(value) && finite(value.left) && finite(value.top)
     && finite(value.width) && finite(value.height)
     && value.width > 0 && value.height > 0
+    && value.left + value.width > value.left
+    && value.top + value.height > value.top
     && Number.isFinite(value.left + value.width)
     && Number.isFinite(value.top + value.height);
 }
