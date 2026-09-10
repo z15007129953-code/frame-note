@@ -29,7 +29,13 @@ Files: `src/db/review-authorization.ts` extracted from existing repository, `src
 - [x] Decode image only after persisted edit authorization. Store canonical bytes, then insert ready metadata using server-generated key and actual dimensions/size; no arbitrary client keys/ready states. Read exact workspace/project asset and confirm canonical file byte length matches stored metadata; fail closed for missing file. Internal metadata never includes absolute paths.
 - [x] Failed DB insert/uncertain commit may leave an unreferenced immutable file; never delete a potentially committed file automatically. Document this conservative failure mode and deferred explicit orphan reconciliation. Do not expose a user-triggered delete or automatic cleanup in this milestone.
 - [x] Run `npm test`, `npm run typecheck`, existing19 DB tests plus new asset tests sequentially. New worktree uses explicit `--env-file=../persistence/.env.local` only for checks; do not copy/move clusters or credentials.
-- [ ] Independent spec review then quality review; fix important findings with regressions. Update README/status with actual verified capability and explicitly note no UI/HTTP/session/signed-share acceptance yet. Integrate locally while retaining data worktrees. No push.
+- [x] Independent spec review then quality review; fix important findings with regressions. Update README/status with actual verified capability and explicitly note no UI/HTTP/session/signed-share acceptance yet. Integrate locally while retaining data worktrees. No push.
+
+Verification: `d35e02f` passes 343 unit and 37 real PostgreSQL tests plus strict
+TypeScript. Both tasks passed specification and quality reviews. The primary
+checkout was fast-forwarded, `npm ci` rerun, and all343 unit tests/typechecks
+passed there. Feature branches and data-bearing worktrees remain intact; no
+remote is configured. Test teardown removed only disposable generated images.
 
 ## Acceptance boundary
 
