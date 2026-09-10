@@ -21,7 +21,8 @@ and 98.10% branches; this is not application coverage.
 Access policy passed independent specification and quality reviews. The quality
 review's minor test-oracle concern was addressed with literal permission tables.
 Pin review identified fractional-edge rejection and subnormal-coordinate underflow;
-both have regression tests and fixes. Final pin re-review is pending.
+both have regression tests and fixes. Independent pin specification re-review
+passed after rerunning all 275 tests and typechecking. Final quality review is pending.
 
 ## Next work
 
