@@ -62,7 +62,17 @@ The browser is bound to loopback, not the public network.
 For this machine's retained worktrees, see [the current checkpoint](docs/development-status.md)
 for the private-config reference. Do not initialize competing databases.
 
-Next milestones add comments, protected shares, comparison, permanent login,
+## Review a version
+
+Click **Add pin** below an uploaded image, then click the part you want to discuss.
+Write your comment and choose **Post comment**. Click a numbered pin to read its
+discussion, post a reply, **Resolve thread**, or **Reopen thread**. Keyboard users
+can choose **Place at center**, then adjust the horizontal/vertical percentages.
+Comments are stored against exactly one version: uploading v2 keeps v1 feedback
+on v1. Switch back to read it. Refresh preserves messages and resolution state.
+This local preview supports the current demo owner; guest/share access comes later.
+
+Next milestones add protected shares, comparison, permanent login,
 signed grants, resource cleanup and full acceptance/accessibility testing.
 See [image storage policy](docs/local-images.md) and
 [third-party dependencies](THIRD_PARTY.md) for storage limits and license notes.

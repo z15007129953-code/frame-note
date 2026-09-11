@@ -4,6 +4,7 @@ import { createConnection } from "../db/connection.ts";
 import { DemoRepository } from "../db/demo-repository.ts";
 import { WorkspaceRepository } from "../db/workspace-repository.ts";
 import { ReviewRepository } from "../db/review-repository.ts";
+import { CommentRepository } from "../db/comment-repository.ts";
 import { AssetRepository } from "../db/asset-repository.ts";
 import { LocalImageStore } from "../storage/local-image-store.ts";
 import { StorageError } from "../storage/errors.ts";
@@ -28,6 +29,7 @@ function createServices() {
     demo: new DemoRepository(connection),
     workspace: new WorkspaceRepository(connection),
     reviews: new ReviewRepository(connection),
+    comments: new CommentRepository(connection),
     get assets() {
       return (assetService ??= LocalImageStore.open(
         resolve(
@@ -101,11 +103,11 @@ export async function route(work: () => Promise<Response>) {
 export function write(request: Request) {
   assertOrigin(request, appOrigin);
 }
-export async function body(request: Request) {
+export async function body(request: Request, maxBytes = 4096) {
   if (request.headers.get("content-type") !== "application/json")
     throw new HttpError(415, "Send JSON data.");
   try {
-    return JSON.parse((await readBody(request, 4096)).toString());
+    return JSON.parse((await readBody(request, maxBytes)).toString());
   } catch (e) {
     if (e instanceof HttpError) throw e;
     throw new HttpError(400, "Check the submitted data.");

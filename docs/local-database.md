@@ -77,6 +77,6 @@ is provided. Back up important data before schema changes.
 ## Current limitations
 
 Database/repository tests are not product acceptance. The local browser preview
-now supports demo sessions, real image upload and version selection; comments,
-protected shares and side-by-side comparison remain pending. Only the image
+now supports demo sessions, real image upload, version selection and pinned
+discussions; protected shares and side-by-side comparison remain pending. Only the image
 adapter may insert verified `ready` assets; clients must never do so directly.

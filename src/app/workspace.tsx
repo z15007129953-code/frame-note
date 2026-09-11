@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { WorkspaceSnapshot } from "../db/workspace-repository.ts";
+import ReviewCanvas from "./review-canvas.tsx";
 class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -20,50 +21,6 @@ const post = (value: unknown) => ({
   headers: { "content-type": "application/json" },
   body: JSON.stringify(value),
 });
-function PrivateImage({
-  assetId,
-  title,
-  width,
-  height,
-}: {
-  assetId: string;
-  title: string;
-  width: number;
-  height: number;
-}) {
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [attempt, setAttempt] = useState(0);
-  return (
-    <>
-      {state === "loading" && <p role="status">Loading image…</p>}
-      {state === "error" ? (
-        <div className="empty" role="alert">
-          <p>The image could not be loaded.</p>
-          <button
-            className="secondary"
-            onClick={() => {
-              setState("loading");
-              setAttempt(attempt + 1);
-            }}
-          >
-            Retry image
-          </button>
-        </div>
-      ) : (
-        <img
-          key={attempt}
-          src={`/api/assets/${assetId}?attempt=${attempt}`}
-          alt={title}
-          width={width}
-          height={height}
-          style={state === "loading" ? { display: "none" } : undefined}
-          onLoad={() => setState("ready")}
-          onError={() => setState("error")}
-        />
-      )}
-    </>
-  );
-}
 export default function Workspace() {
   const imageInput = useRef<HTMLInputElement>(null);
   const revisionInput = useRef<HTMLInputElement>(null);
@@ -113,7 +70,7 @@ export default function Workspace() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
-  async function run(work: () => Promise<void>) {
+  async function run(work: () => Promise<void>, localErrors = false) {
     setBusy(true);
     setError("");
     try {
@@ -126,7 +83,8 @@ export default function Workspace() {
         setPresentationTitle("");
         clearDrafts();
       }
-      setError(e instanceof Error ? e.message : "Please try again.");
+      if (!localErrors || (e instanceof ApiError && e.status === 401))
+        setError(e instanceof Error ? e.message : "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -258,9 +216,9 @@ export default function Workspace() {
                 No account needed · Local files · 24-hour session
               </p>
               <p className="scope-note">
-                Early preview: presentations, image uploads and versions.
+                Early preview: image versions and pinned discussions.
                 <br />
-                Sharing, comments and comparison are still being built.
+                Sharing and comparison are still being built.
               </p>
             </div>
             <div className="paper-study" aria-hidden="true">
@@ -414,14 +372,15 @@ export default function Workspace() {
                         </label>
                       )}
                     </div>
-                    <div className="artboard">
+                    <div>
                       {version && screen ? (
-                        <PrivateImage
-                          key={version.assetId}
-                          assetId={version.assetId}
+                        <ReviewCanvas
+                          key={version.id}
+                          version={version}
                           title={screen.title}
-                          width={version.width}
-                          height={version.height}
+                          busy={busy}
+                          request={api}
+                          execute={(work) => run(work, true)}
                         />
                       ) : (
                         <div className="empty">

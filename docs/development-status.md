@@ -1,4 +1,4 @@
-# Development checkpoint — 10 September 2026
+# Development checkpoint — 11 September 2026
 
 Frame Note now has a runnable first local browser slice. It is **not** the
 finished review product and has not received user acceptance. No public remote,
@@ -9,7 +9,10 @@ cloud deployment or domain configuration is part of this checkpoint.
 Start a private demo → create presentation → name and upload a screen → reload
 persisted image → upload another version → switch versions → sign out.
 Invalid images show a useful error; the created empty screen can be finished
-through the new-version form. Image read failures have a retry action. Session
+through the new-version form. Version-specific pins now support persistent
+comments, replies, resolution and reopening. Coordinates follow the actual image
+when resized. Keyboard users can place centrally and edit percentage positions.
+Image read failures have a retry action. Session
 loss returns to the demo entry, clearing pending files and titles.
 
 Next.js 16.3.4 / React 19.3.0 call permission-checked Node routes. Random 32-byte
@@ -26,17 +29,23 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 
 ## Verified checkpoint
 
-- 347 unit tests; 55 real PostgreSQL integration tests, no skips.
-- Six Chrome journeys pass against both development and production servers;
+- 347 unit tests; 70 real PostgreSQL integration tests, no skips.
+- Seven Chrome journeys pass against the production server;
   browser tests cover persistence/version selection, second-session isolation,
   cross-origin refusal, invalid-image recovery, image retry, busy selection,
-  new-session draft isolation and session-expiry recovery.
+  new-session draft isolation and session-expiry recovery. The comment journey
+  also covers replies, resolve/reopen, reload, version isolation, resize position,
+  keyboard entry, cross-session denial and version-local error/draft handling.
 - Strict TypeScript and production build checks passed. Build tracing excludes
   runtime uploads; no `.local` or `.env` paths remain in the API trace manifests.
 - Desktop and 390px viewport screenshots inspected. This is browser emulation,
   not a real iPhone/Android or full accessibility certification.
 - Independent backend specification and code-quality reviews performed.
   Client draft isolation findings were reproduced and repaired with browser tests.
+- Pin discussion spec/quality reviews approved the scoped local milestone. Two
+  minor refinements remain: comment-specific quota wording and less aggressive
+  normalization while editing percentage inputs. Neither affects stored pin
+  validity or access checks.
 
 ## Limits and honest gaps
 
@@ -48,7 +57,10 @@ to avoid deleting possibly committed data; reconciliation is still pending.
   the session but retains workspace data. It does **not** bound cumulative demo
   workspaces/files. No automatic expiry/orphan cleanup or global disk cap yet.
 - Local-only preview; no internet-facing rate limiting or permanent accounts.
-- No persisted comments/resolution, protected sharing, comparison, presence,
+- 100 threads/version, 100 messages/thread and 2000 characters/message. Comment
+  text requests have a 16 KiB JSON cap to accommodate non-ASCII text; resolution
+  and ordinary JSON requests retain the 4096-byte cap.
+- No protected sharing, comparison, presence,
   signed grants, cleanup workflow, presentation mode or UI reordering yet.
 - Uploads have no idempotency key: after an ambiguous network failure, inspect
   current versions before retrying. Screen creation precedes image upload.
@@ -75,5 +87,5 @@ For a fresh clone, follow [local database setup](local-database.md), apply
 migrations, then `npm run dev`; Next reads the clone's `.env.local` normally.
 No credentials, image uploads or database data are tracked in Git.
 
-Next: comments and sharing, comparison, cleanup, permanent login and complete
+Next: sharing, comparison, cleanup, permanent login and complete
 acceptance/accessibility checks. User approval is required before GitHub publication.

@@ -46,7 +46,7 @@ function code(expected: string) { return (error: unknown) => typeof error === 'o
 
 test('migration history is applied once and records SHA256', async () => {
   const rows = await sql`select name, checksum from frame_note_migrations`;
-  assert.equal(rows.length, 2);
+  assert.equal(rows.length, 3);
   assert.match(rows[0]!.checksum, /^[a-f0-9]{64}$/);
 });
 

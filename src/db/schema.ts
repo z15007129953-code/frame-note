@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, timestamp, integer, bigint, unique, primaryKey, foreignKey, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, bigint, doublePrecision, boolean, index, unique, primaryKey, foreignKey, check } from 'drizzle-orm/pg-core';
 
 const id = () => uuid('id').primaryKey().defaultRandom();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -60,8 +60,31 @@ export const assets = pgTable('assets', {
 export const versions = pgTable('versions', {
   id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
   screenId: uuid('screen_id').notNull(), assetId: uuid('asset_id').notNull(), number: integer('number').notNull(), createdAt: createdAt(),
-}, t => [unique().on(t.screenId, t.number), unique().on(t.screenId, t.assetId),
+}, t => [unique().on(t.workspaceId, t.projectId, t.id), unique().on(t.screenId, t.number), unique().on(t.screenId, t.assetId),
   foreignKey({ columns: [t.workspaceId, t.projectId, t.screenId], foreignColumns: [screens.workspaceId, screens.projectId, screens.id] }),
   foreignKey({ columns: [t.workspaceId, t.projectId, t.assetId], foreignColumns: [assets.workspaceId, assets.projectId, assets.id] }),
   check('versions_number_check', sql`${t.number} between 1 and 50`),
+]);
+export const commentThreads = pgTable('comment_threads', {
+  id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
+  versionId: uuid('version_id').notNull(), x: doublePrecision('x').notNull(), y: doublePrecision('y').notNull(),
+  resolved: boolean('resolved').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, t => [
+  unique().on(t.workspaceId, t.projectId, t.versionId, t.id),
+  foreignKey({ columns: [t.workspaceId, t.projectId, t.versionId], foreignColumns: [versions.workspaceId, versions.projectId, versions.id] }),
+  check('comment_threads_x_check', sql`${t.x} between 0 and 1`),
+  check('comment_threads_y_check', sql`${t.y} between 0 and 1`),
+  index('comment_threads_version_order').on(t.workspaceId, t.projectId, t.versionId, t.createdAt, t.id),
+]);
+export const commentMessages = pgTable('comment_messages', {
+  id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
+  versionId: uuid('version_id').notNull(), threadId: uuid('thread_id').notNull(), authorId: uuid('author_id').notNull(),
+  body: text('body').notNull(), createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, t => [
+  foreignKey({ columns: [t.workspaceId, t.projectId, t.versionId, t.threadId], foreignColumns: [commentThreads.workspaceId, commentThreads.projectId, commentThreads.versionId, commentThreads.id] }),
+  // Author identity survives project membership revocation; writes check live membership transactionally.
+  foreignKey({ columns: [t.workspaceId, t.authorId], foreignColumns: [members.workspaceId, members.id] }),
+  check('comment_messages_body_check', sql`length(btrim(${t.body})) between 1 and 2000`),
+  index('comment_messages_thread_order').on(t.workspaceId, t.projectId, t.versionId, t.threadId, t.createdAt, t.id),
 ]);

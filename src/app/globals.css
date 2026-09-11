@@ -523,6 +523,157 @@ form label {
     padding: 32px 24px;
   }
 }
+.pin-image {
+  position: relative;
+  flex-shrink: 0;
+}
+.artboard .pin-image img {
+  width: 100%;
+  max-height: none;
+  height: auto;
+}
+.pin-image.placing img {
+  cursor: crosshair;
+}
+.pin-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--surface);
+  border: 2px solid var(--surface);
+}
+.pin-marker.selected,
+.pin-marker.draft {
+  background: var(--accent);
+}
+.pin-marker.resolved {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.pin-marker.draft {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.discussion {
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  border-top: 1px solid var(--line);
+}
+.discussion-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.discussion h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+.discussion-columns {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.discussion-columns nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.thread-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.thread-link.selected {
+  background: var(--wash);
+}
+.thread-link > span:nth-child(2) {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.thread-link small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.thread-detail,
+.pin-composer {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pin-composer {
+  background: var(--paper);
+  padding: 16px;
+}
+.pin-coordinates {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pin-coordinates label {
+  display: grid;
+  gap: 8px;
+}
+.comment-actions {
+  display: flex;
+  gap: 12px;
+}
+.messages {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+.messages li {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+.messages p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.messages time {
+  display: block;
+}
+.discussion textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 12px;
+  min-height: 96px;
+  width: 100%;
+  resize: vertical;
+}
+.discussion textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (min-width: 1200px) {
+  .discussion-columns {
+    grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
