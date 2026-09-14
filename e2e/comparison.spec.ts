@@ -172,6 +172,16 @@ test("session loss during a comparison image read clears the private view", asyn
   await expect(page.getByLabel("Left version", { exact: true })).toHaveCount(0);
 });
 
+test("reentering comparison checks access after session loss", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("button", { name: "Compare versions", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Left: Homepage v1", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back to review", exact: true }).click();
+  await page.context().clearCookies();
+  await page.getByRole("button", { name: "Compare versions", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Start a private demo" })).toBeVisible();
+});
+
 test("comparison controls wait while an image version is saving", async ({ page }) => {
   await setup(page);
   const snapshot = await (await page.request.get("/api/workspace")).json();

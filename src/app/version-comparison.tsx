@@ -7,10 +7,6 @@ type Side = "left" | "right";
 type ImageState = { attempt: number; status: "loading" | "ready" | "error" };
 
 export default function VersionComparison({ screen, current, busy, onImageError }: Props) {
-  const imageAttempt = useRef(0);
-  // A fresh URL for every pair prevents the browser's decoded-image cache
-  // from reusing an earlier authorized read after the session has expired.
-  function nextImageAttempt() { return ++imageAttempt.current; }
   const versions = [...screen.versions].sort((a, b) => a.number - b.number);
   const index = versions.findIndex((version) => version.id === current.id);
   const [pair, setPair] = useState(() => ({
@@ -55,20 +51,21 @@ export default function VersionComparison({ screen, current, busy, onImageError 
         </div>
       </div>
       <ComparisonImages key={`${left.assetId}:${right.assetId}`} title={screen.title}
-        left={left} right={right} mode={mode} busy={busy} onImageError={onImageError}
-        nextImageAttempt={nextImageAttempt} />
+        left={left} right={right} mode={mode} busy={busy} onImageError={onImageError} />
     </section>
   );
 }
 
-function ComparisonImages({ title, left, right, mode, busy, onImageError, nextImageAttempt }: {
+function ComparisonImages({ title, left, right, mode, busy, onImageError }: {
   title: string; left: WorkspaceVersion; right: WorkspaceVersion;
   mode: "side" | "overlay"; busy: boolean; onImageError: () => void;
-  nextImageAttempt: () => number;
 }) {
+  // Mounted only after client interaction. A unique read URL for every pair
+  // and re-entry avoids decoded-image reuse, including review-stage remounts.
+  const [readId] = useState(() => crypto.randomUUID());
   const [images, setImages] = useState<Record<Side, ImageState>>(() => ({
-    left: { attempt: nextImageAttempt(), status: "loading" },
-    right: { attempt: nextImageAttempt(), status: "loading" },
+    left: { attempt: 0, status: "loading" },
+    right: { attempt: 0, status: "loading" },
   }));
   const [reveal, setReveal] = useState(50);
   const pointer = useRef<number | null>(null);
@@ -103,8 +100,7 @@ function ComparisonImages({ title, left, right, mode, busy, onImageError, nextIm
             <p>{state.status === "loading" ? `Loading ${side} image…` : `${label} image could not be loaded.`}</p>
             {state.status === "error" && <button className="secondary" disabled={busy}
               onClick={() => {
-                const attempt = nextImageAttempt();
-                setImages((previous) => ({ ...previous, [side]: { attempt, status: "loading" } }));
+                setImages((previous) => ({ ...previous, [side]: { attempt: previous[side].attempt + 1, status: "loading" } }));
               }}>
               Retry {side} image
             </button>}
@@ -134,7 +130,7 @@ function ComparisonImages({ title, left, right, mode, busy, onImageError, nextIm
           return <div key={side} className={`comparison-pane comparison-${side}`}
             style={mode === "overlay" && side === "left" ? { clipPath: `inset(0 ${100 - reveal}% 0 0)` } : undefined}>
             {state.status !== "error" && <img key={`${version.assetId}:${state.attempt}`}
-              src={`/api/assets/${version.assetId}?attempt=${state.attempt}`}
+              src={`/api/assets/${version.assetId}?attempt=${state.attempt}&read=${readId}`}
               alt={`${side === "left" ? "Left" : "Right"}: ${title} v${version.number}`}
               width={version.width} height={version.height} draggable={false}
               style={{ width: `${version.width / width * 100}%`, visibility: state.status === "ready" ? "visible" : "hidden" }}
