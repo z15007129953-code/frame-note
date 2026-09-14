@@ -1,7 +1,8 @@
-# Development checkpoint — 11 September 2026
+# Development checkpoint — 14 September 2026
 
 Frame Note now has a runnable first local browser slice. It is **not** the
-finished review product and has not received user acceptance. No public remote,
+finished review product. The user accepted the upload/version/pin-comments stage
+on September 14; full product acceptance is still pending. No public remote,
 cloud deployment or domain configuration is part of this checkpoint.
 
 ## Working browser journey
@@ -14,6 +15,16 @@ comments, replies, resolution and reopening. Coordinates follow the actual image
 when resized. Keyboard users can place centrally and edit percentage positions.
 Image read failures have a retry action. Session
 loss returns to the demo entry, clearing pending files and titles.
+
+Comparison now supports two distinct versions of the same screen, side-by-side
+or pointer/keyboard-driven overlay. Common canvases preserve image proportions
+and top-left alignment at the same scale; neutral blank regions make dimension
+differences explicit. Narrow layouts stack side-by-side canvases. Returning to
+review retains the same version and unsent comment/reply draft. Changing screen
+or review version resets that context. Comparison image requests reuse the
+private asset endpoint; failed reads offer side-specific retry and check session
+validity through the existing API handler. Unique read IDs for every mounted
+pair plus retry attempts avoid decoded-image reuse on swaps and re-entry.
 
 Next.js 16.3.4 / React 19.3.0 call permission-checked Node routes. Random 32-byte
 demo tokens are stored only as SHA256 hashes; cookies are HttpOnly, SameSite
@@ -30,12 +41,18 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 ## Verified checkpoint
 
 - 347 unit tests; 70 real PostgreSQL integration tests, no skips.
-- Seven Chrome journeys pass against the production server;
+- Fourteen Chrome journeys pass against the production server;
   browser tests cover persistence/version selection, second-session isolation,
   cross-origin refusal, invalid-image recovery, image retry, busy selection,
   new-session draft isolation and session-expiry recovery. The comment journey
   also covers replies, resolve/reopen, reload, version isolation, resize position,
   keyboard entry, cross-session denial and version-local error/draft handling.
+- Seven comparison journeys cover the two-version threshold, pair selection and
+  swap, preserved review draft, same-scale/different-size geometry, overlay
+  keyboard and pointer reveal, mobile stacking, image retry, foreign-session
+  denial, screen reset and session loss on image reads, swaps and re-entry. Pointer checks also
+  include emulated Chrome touch input. A held-upload/image-failure regression
+  verifies that the session check cannot unlock controls before saving finishes.
 - Strict TypeScript and production build checks passed. Build tracing excludes
   runtime uploads; no `.local` or `.env` paths remain in the API trace manifests.
 - Desktop and 390px viewport screenshots inspected. This is browser emulation,
@@ -46,6 +63,9 @@ to avoid deleting possibly committed data; reconciliation is still pending.
   minor refinements remain: comment-specific quota wording and less aggressive
   normalization while editing percentage inputs. Neither affects stored pin
   validity or access checks.
+- Comparison specification and quality reviews performed. Held-upload busy-state
+  overlap and decoded-image reuse on comparison re-entry were reproduced in
+  Chrome, repaired and covered by browser regressions.
 
 ## Limits and honest gaps
 
@@ -60,7 +80,7 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 - 100 threads/version, 100 messages/thread and 2000 characters/message. Comment
   text requests have a 16 KiB JSON cap to accommodate non-ASCII text; resolution
   and ordinary JSON requests retain the 4096-byte cap.
-- No protected sharing, comparison, presence,
+- No protected sharing, presence,
   signed grants, cleanup workflow, presentation mode or UI reordering yet.
 - Uploads have no idempotency key: after an ambiguous network failure, inspect
   current versions before retrying. Screen creation precedes image upload.
@@ -87,5 +107,5 @@ For a fresh clone, follow [local database setup](local-database.md), apply
 migrations, then `npm run dev`; Next reads the clone's `.env.local` normally.
 No credentials, image uploads or database data are tracked in Git.
 
-Next: sharing, comparison, cleanup, permanent login and complete
+Next: protected sharing, cleanup, permanent login and complete
 acceptance/accessibility checks. User approval is required before GitHub publication.

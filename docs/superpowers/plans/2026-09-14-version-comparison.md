@@ -34,11 +34,11 @@ await expect(page.getByRole('slider', { name: 'Reveal left version' })).toHaveVa
 
 Files: create `src/app/version-comparison.tsx`, `src/app/review-stage.tsx`; modify `src/app/workspace.tsx`, `src/app/globals.css`.
 
-- [ ] After Task 1 red result, implement review-stage integration; preserve hidden review drafts on mode toggle, reset keyed screen/version context on selection changes.
-- [ ] Implement version selection, explicit pair labels/dimensions, native Side by side / Overlay controls, same-scale canvases, native reveal slider and pointer-captured divider. Image layers are keyed by asset and attempt; each displays loading/error and Retry left image / Retry right image. A failed image must never silently show an older selection or look like a valid empty image. Controls disable during writes.
-- [ ] Reuse `/api/assets/${version.assetId}?attempt=${attempt}` only. No secret/token URLs or public asset grants. Callback to existing session handler on authorization failure if needed.
-- [ ] Style using existing spacing and colors, container query for side-by-side width, visible focus and 44px targets. No new typography or animation system.
-- [ ] Run `npm run typecheck`, rebuild and restart local4310 preview, then browser contracts. Expected pass. Update welcome scope to include comparison but not imply sharing exists.
+- [x] After Task 1 red result, implement review-stage integration; preserve hidden review drafts on mode toggle, reset keyed screen/version context on selection changes.
+- [x] Implement version selection, explicit pair labels/dimensions, native Side by side / Overlay controls, same-scale canvases, native reveal slider and pointer-captured divider. Image layers are keyed by asset and attempt; each displays loading/error and Retry left image / Retry right image. A failed image must never silently show an older selection or look like a valid empty image. Controls disable during writes.
+- [x] Reuse `/api/assets/${version.assetId}?attempt=${attempt}` only. No secret/token URLs or public asset grants. Callback to existing session handler on authorization failure if needed.
+- [x] Style using existing spacing and colors, container query for side-by-side width, visible focus and 44px targets. No new typography or animation system.
+- [x] Run `npm run typecheck`, rebuild and restart local4310 preview, then browser contracts. Expected pass. Update welcome scope to include comparison but not imply sharing exists.
 
 Geometry contract:
 ```ts
@@ -54,8 +54,8 @@ const clipPath = `inset(0 ${100 - reveal}% 0 0)`;
 
 Files: `docs/development-status.md`, `docs/acceptance-zh.md`, this plan.
 
-- [ ] Run `npm test`, `npm run typecheck`, `npm run build`, real DB tests sequentially with retained private env, and all Chrome journeys. Do not print env values or change database lifecycle.
-- [ ] Inspect desktop and390px screenshots for artwork scale, controls, loading/errors and overflow. Browser emulation is not real-device certification.
-- [ ] Independent specification review, then code-quality review. Reproduce findings with failing tests before repairs and request re-review.
-- [ ] Record exact fresh results and remaining gaps; commit only scoped files locally. Retain worktree and local data; no remote, push, hosting or DNS.
-- [ ] Present local preview and a short Chinese operation guide for comparison acceptance. Full product sharing and other approved features remain subsequent work.
+- [x] Run `npm test`, `npm run typecheck`, `npm run build`, real DB tests sequentially with retained private env, and all Chrome journeys. Final results: 347 unit tests, 70 DB tests, 14 Chrome journeys; strict typecheck and production build pass.
+- [x] Inspect desktop and390px screenshots for artwork scale, controls, loading/errors and overflow. Browser emulation is not real-device certification.
+- [x] Independent specification review, then code-quality review. Reproduce findings with failing tests before repairs and request re-review. Both approved after busy-state overlap and comparison re-entry cache regressions were repaired; no blocking findings remain for this local milestone.
+- [x] Record exact fresh results and remaining gaps; commit only scoped files locally. Retain worktree and local data; no remote, push, hosting or DNS. Implementation commits: caa9de1 and 023b0b0.
+- [x] Present local preview and a short Chinese operation guide for comparison acceptance. Chrome opened at localhost4310; detailed guide is in docs/acceptance-zh.md. Full product sharing and other approved features remain subsequent work.
