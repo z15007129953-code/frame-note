@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { WorkspaceSnapshot } from "../db/workspace-repository.ts";
 import ReviewStage from "./review-stage.tsx";
+import ShareManager from "./share-manager.tsx";
 class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -221,7 +222,7 @@ export default function Workspace() {
               <p className="scope-note">
                 Early preview: image versions, comparison and pinned discussions.
                 <br />
-                Sharing is still being built.
+                View-only sharing is available. Guest comments are still being built.
               </p>
             </div>
             <div className="paper-study" aria-hidden="true">
@@ -470,6 +471,8 @@ export default function Workspace() {
                       </form>
                     )}
                   </div>
+                  <ShareManager key={presentation.id} presentationId={presentation.id}
+                    busy={busy} request={api} execute={work => run(work, true)} />
                 </>
               )}
             </section>

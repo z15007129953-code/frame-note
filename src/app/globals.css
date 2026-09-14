@@ -876,3 +876,20 @@ form label {
     scroll-behavior: auto !important;
   }
 }
+.share-manager {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+}
+.share-manager > .note { max-width: 75ch; }
+.share-create { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
+.share-create label, .share-created { display: grid; gap: 8px; min-width: 0; }
+.share-created input { width: 100%; }
+.share-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.share-list li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 12px; border-top: 1px solid var(--line); }
+.share-list small { display: block; color: var(--muted); }
+.shared-page { max-width: 1200px; margin: auto; padding: 32px 24px; }
+.shared-page h1 { font-size: 1.953rem; overflow-wrap: anywhere; }
+.shared-notice { margin-top: 24px; max-width: 75ch; }

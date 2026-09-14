@@ -2,7 +2,8 @@
 
 Frame Note now has a runnable first local browser slice. It is **not** the
 finished review product. The user accepted the upload/version/pin-comments stage
-on September 14; full product acceptance is still pending. No public remote,
+and comparison stages on September 14; read-only sharing is awaiting acceptance.
+Full product acceptance is still pending. No public remote,
 cloud deployment or domain configuration is part of this checkpoint.
 
 ## Working browser journey
@@ -26,6 +27,17 @@ private asset endpoint; failed reads offer side-specific retry and check session
 validity through the existing API handler. Unique read IDs for every mounted
 pair plus retry attempts avoid decoded-image reuse on swaps and re-entry.
 
+Owners can create 1-hour/24-hour read-only links to one presentation and revoke
+them. The link covers all current/future versions and never outlives its issuer
+or project. Random 32-byte bearer secrets live in URL fragments and authorization
+headers, with only SHA256 hashes persisted. Guest reads do not grant private
+workspace access. Visitors poll every 5 seconds and on focus; invalidation clears
+the snapshot and blob image, and later polls cannot restore them. Temporary
+storage/network errors offer retry. Full links are displayed once; switching
+presentation or leaving clears that transient value. Manual copy is available
+when clipboard permission is denied. The gallery-worktable interface and image
+proportions remain unchanged; sharing controls use the same Impeccable design.
+
 Next.js 16.3.4 / React 19.3.0 call permission-checked Node routes. Random 32-byte
 demo tokens are stored only as SHA256 hashes; cookies are HttpOnly, SameSite
 Strict and expire after 24 hours. Writes require the exact configured Origin.
@@ -40,8 +52,8 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 
 ## Verified checkpoint
 
-- 347 unit tests; 70 real PostgreSQL integration tests, no skips.
-- Fourteen Chrome journeys pass against the production server;
+- 347 unit tests; 88 real PostgreSQL integration tests, no skips.
+- Twenty-one Chrome journeys pass against the production server;
   browser tests cover persistence/version selection, second-session isolation,
   cross-origin refusal, invalid-image recovery, image retry, busy selection,
   new-session draft isolation and session-expiry recovery. The comment journey
@@ -53,6 +65,14 @@ to avoid deleting possibly committed data; reconciliation is still pending.
   denial, screen reset and session loss on image reads, swaps and re-entry. Pointer checks also
   include emulated Chrome touch input. A held-upload/image-failure regression
   verifies that the session check cannot unlock controls before saving finishes.
+- Seven sharing journeys cover separate-session viewing, version switching,
+  owner/private endpoint denial, foreign image denial, token-free request URLs,
+  revocation, 503 retry, missing/invalid fragments, copy/manual-copy feedback,
+  presentation-switch token clearing, stable link numbering, owner session loss
+  and terminal invalidation. Eighteen database share tests cover hashes, scoped
+  roles/assets, expiry after locks/file I/O, serialized quotas/revocation and
+  retryable storage errors. Lazy image-store initialization keeps database-backed
+  share management/revocation available during a storage outage.
 - Strict TypeScript and production build checks passed. Build tracing excludes
   runtime uploads; no `.local` or `.env` paths remain in the API trace manifests.
 - Desktop and 390px viewport screenshots inspected. This is browser emulation,
@@ -66,6 +86,9 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 - Comparison specification and quality reviews performed. Held-upload busy-state
   overlap and decoded-image reuse on comparison re-entry were reproduced in
   Chrome, repaired and covered by browser regressions.
+- Read-only sharing specification and quality reviews approved after repairs.
+  Regressions reproduce initial owner-list session loss, transient storage errors,
+  terminal invalidation, storage-independent revocation and stable link labels.
 
 ## Limits and honest gaps
 
@@ -80,8 +103,9 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 - 100 threads/version, 100 messages/thread and 2000 characters/message. Comment
   text requests have a 16 KiB JSON cap to accommodate non-ASCII text; resolution
   and ordinary JSON requests retain the 4096-byte cap.
-- No protected sharing, presence,
-  signed grants, cleanup workflow, presentation mode or UI reordering yet.
+- 20 lifetime links/presentation, including revoked links. No guest comments,
+  public-without-token links, presence, signed grants, cleanup workflow,
+  presentation mode or UI reordering yet. Downloaded shared images cannot be recalled.
 - Uploads have no idempotency key: after an ambiguous network failure, inspect
   current versions before retrying. Screen creation precedes image upload.
 - Demo logout/expiry removes access; permanent recovery/export is not implemented.
@@ -107,5 +131,5 @@ For a fresh clone, follow [local database setup](local-database.md), apply
 migrations, then `npm run dev`; Next reads the clone's `.env.local` normally.
 No credentials, image uploads or database data are tracked in Git.
 
-Next: protected sharing, cleanup, permanent login and complete
+Next: guest review collaboration, remaining presentation tools, cleanup, permanent login and complete
 acceptance/accessibility checks. User approval is required before GitHub publication.

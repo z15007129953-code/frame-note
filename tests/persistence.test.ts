@@ -45,9 +45,9 @@ async function asset(f: Awaited<ReturnType<typeof fixture>>, ready = true) {
 function code(expected: string) { return (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === expected; }
 
 test('migration history is applied once and records SHA256', async () => {
-  const rows = await sql`select name, checksum from frame_note_migrations`;
-  assert.equal(rows.length, 3);
-  assert.match(rows[0]!.checksum, /^[a-f0-9]{64}$/);
+  const rows = await sql`select name, checksum from frame_note_migrations order by name`;
+  assert.deepEqual(rows.map(row => row.name), ['0000_review.sql', '0001_demo_sessions.sql', '0002_comments.sql', '0003_shares.sql']);
+  for (const row of rows) assert.match(row.checksum, /^[a-f0-9]{64}$/);
 });
 
 test('changed applied migration refuses and failed migration rolls back all DDL', async () => {

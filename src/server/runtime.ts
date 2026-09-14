@@ -5,6 +5,7 @@ import { DemoRepository } from "../db/demo-repository.ts";
 import { WorkspaceRepository } from "../db/workspace-repository.ts";
 import { ReviewRepository } from "../db/review-repository.ts";
 import { CommentRepository } from "../db/comment-repository.ts";
+import { ShareRepository } from "../db/share-repository.ts";
 import { AssetRepository } from "../db/asset-repository.ts";
 import { LocalImageStore } from "../storage/local-image-store.ts";
 import { StorageError } from "../storage/errors.ts";
@@ -25,11 +26,20 @@ function createServices() {
     );
   const connection = createConnection(process.env.DATABASE_URL);
   let assetService: Promise<AssetRepository> | undefined;
+  let shareStore: Promise<LocalImageStore> | undefined;
   return {
     demo: new DemoRepository(connection),
     workspace: new WorkspaceRepository(connection),
     reviews: new ReviewRepository(connection),
     comments: new CommentRepository(connection),
+    shares: new ShareRepository(connection, () => {
+      return (shareStore ??= LocalImageStore.open(resolve(
+        /* turbopackIgnore: true */ process.env.FRAME_IMAGE_DIRECTORY ?? ".local/images",
+      )).catch(error => {
+        shareStore = undefined;
+        throw error;
+      }));
+    }),
     get assets() {
       return (assetService ??= LocalImageStore.open(
         resolve(

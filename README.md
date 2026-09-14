@@ -70,9 +70,25 @@ discussion, post a reply, **Resolve thread**, or **Reopen thread**. Keyboard use
 can choose **Place at center**, then adjust the horizontal/vertical percentages.
 Comments are stored against exactly one version: uploading v2 keeps v1 feedback
 on v1. Switch back to read it. Refresh preserves messages and resolution state.
-This local preview supports the current demo owner; guest/share access comes later.
+The current demo owner can comment; shared visitors are read-only.
 
-Next milestones add protected shares, comparison, permanent login,
+## Compare and share
+
+After uploading two versions, choose **Compare versions** for side-by-side or
+keyboard/pointer-controlled **Overlay** comparison. Images keep their proportions
+and use the same scale. **Back to review** restores the original review context.
+
+Under **Share presentation**, choose a 1-hour or 24-hour duration and create a
+view-only link. Copy the full address into a separate browser session on this
+computer. Anyone holding it can see all current and future versions in that one
+presentation, without commenting or editing. Links cannot outlive their project
+or issuer. **Revoke link** blocks subsequent reads; open visitors clear the view
+on their next access check (normally every 5 seconds). Downloaded images cannot
+be recalled. Only a SHA256 token hash is stored; the plaintext link is shown once
+and cannot be recovered after leaving or refreshing. There is a 20-link lifetime
+limit per presentation, including revoked links. Local links are not hosted URLs.
+
+Next milestones add guest comments, presentation mode, permanent login,
 signed grants, resource cleanup and full acceptance/accessibility testing.
 See [image storage policy](docs/local-images.md) and
 [third-party dependencies](THIRD_PARTY.md) for storage limits and license notes.

@@ -5,7 +5,7 @@ import type { Connection } from './connection.ts';
 export type Migration = { name: string; sql: string };
 /** Optional explicit migrations support testing transactional failure without changing applied files. */
 export async function migrate(connection: Connection, migrations?: readonly Migration[]): Promise<void> {
-  const entries = migrations ?? await Promise.all(['0000_review.sql', '0001_demo_sessions.sql', '0002_comments.sql'].map(async name => ({
+  const entries = migrations ?? await Promise.all(['0000_review.sql', '0001_demo_sessions.sql', '0002_comments.sql', '0003_shares.sql'].map(async name => ({
     name, sql: await readFile(new URL(`../../drizzle/${name}`, import.meta.url), 'utf8'),
   })));
   if (new Set(entries.map(entry => entry.name)).size !== entries.length) throw new Error('Duplicate migration name');

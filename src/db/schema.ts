@@ -88,3 +88,15 @@ export const commentMessages = pgTable('comment_messages', {
   check('comment_messages_body_check', sql`length(btrim(${t.body})) between 1 and 2000`),
   index('comment_messages_thread_order').on(t.workspaceId, t.projectId, t.versionId, t.threadId, t.createdAt, t.id),
 ]);
+export const shares = pgTable('shares', {
+  id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
+  presentationId: uuid('presentation_id').notNull(), issuerId: uuid('issuer_id').notNull(),
+  tokenHash: text('token_hash').notNull().unique(), expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revoked: boolean('revoked').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, t => [
+  foreignKey({ columns: [t.workspaceId, t.projectId, t.presentationId], foreignColumns: [presentations.workspaceId, presentations.projectId, presentations.id] }),
+  foreignKey({ columns: [t.workspaceId, t.issuerId], foreignColumns: [members.workspaceId, members.id] }),
+  check('shares_token_hash_check', sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
+  index('shares_presentation_order').on(t.workspaceId, t.projectId, t.presentationId, t.createdAt, t.id),
+]);
