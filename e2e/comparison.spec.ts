@@ -89,10 +89,20 @@ test("comparison keeps draft context, same-scale geometry and keyboard/pointer r
   await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2, { steps: 5 });
   await page.mouse.up();
   expect(Math.abs(Number(await slider.inputValue()) - 25)).toBeLessThan(2);
+  await expect(canvas.locator(".comparison-left")).toHaveCSS("clip-path", "inset(0px 75% 0px 0px)");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("comparison-overlay").scrollIntoViewIfNeeded();
+  const mobileCanvas = (await canvas.boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: mobileCanvas.x + mobileCanvas.width * 0.25, y: mobileCanvas.y + mobileCanvas.height / 2 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: mobileCanvas.x + mobileCanvas.width * 0.75, y: mobileCanvas.y + mobileCanvas.height / 2 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+  expect(Math.abs(Number(await slider.inputValue()) - 75)).toBeLessThan(2);
   await page.screenshot({ path: "test-results/comparison-overlay-mobile.png", fullPage: true });
   await page.getByRole("button", { name: "Side by side", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Side by side", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Overlay", exact: true })).toHaveAttribute("aria-pressed", "false");
   const ma = (await leftImg.boundingBox())!, mb = (await rightImg.boundingBox())!;
   expect(mb.y).toBeGreaterThan(ma.y + ma.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -129,7 +139,7 @@ test("comparison image failures retry without losing private authorization", asy
   await outsider.close();
 });
 
-test("comparison resets for another screen and session loss clears the private view", async ({ page }) => {
+test("comparison resets for another screen", async ({ page }) => {
   await setup(page, 3);
   await page.getByRole("button", { name: "Compare versions", exact: true }).click();
   await expect(page.getByLabel("Left version", { exact: true })).toHaveValue("2");
@@ -145,9 +155,51 @@ test("comparison resets for another screen and session loss clears the private v
   await expect(page.getByRole("button", { name: "Compare versions", exact: true })).toBeDisabled();
   await page.locator(".screen-strip").getByRole("button", { name: /Homepage/ }).click();
   await page.getByRole("button", { name: "Compare versions", exact: true }).click();
+  await expect(page.getByLabel("Left version", { exact: true })).toHaveValue("2");
+  await expect(page.getByLabel("Right version", { exact: true })).toHaveValue("3");
   await page.context().clearCookies();
   await page.getByRole("button", { name: "Swap versions", exact: true }).click();
-  // Switching the image pair performs an authorized read; session loss must not look like an empty image.
   await expect(page.getByRole("button", { name: "Start a private demo" })).toBeVisible();
+  await expect(page.getByLabel("Left version", { exact: true })).toHaveCount(0);
+});
+
+test("session loss during a comparison image read clears the private view", async ({ page }) => {
+  await setup(page);
+  await page.context().clearCookies();
+  await page.getByRole("button", { name: "Compare versions", exact: true }).click();
+  // v1 has not been displayed, so this is a new authorized image read (not decoded-image reuse).
+  await expect(page.getByRole("button", { name: "Start a private demo" })).toBeVisible();
+  await expect(page.getByLabel("Left version", { exact: true })).toHaveCount(0);
+});
+
+test("comparison controls wait while an image version is saving", async ({ page }) => {
+  await setup(page);
+  const snapshot = await (await page.request.get("/api/workspace")).json();
+  const asset = snapshot.presentations[0].screens[0].versions[0].assetId;
+  let failImage!: () => void;
+  const imageHold = new Promise<void>(resolve => { failImage = resolve; });
+  await page.route(`**/api/assets/${asset}*`, async route => { await imageHold; await route.abort(); });
+  await page.getByRole("button", { name: "Compare versions", exact: true }).click();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/upload?*", async route => { await hold; await route.continue(); });
+  const png = await sharp({ create: { width: 100, height: 100, channels: 3, background: "#96a789" } }).png().toBuffer();
+  await page.getByLabel("New version image").setInputFiles({ name: "third.png", mimeType: "image/png", buffer: png });
+  await page.getByRole("button", { name: "Upload new version", exact: true }).click();
+  try {
+    const sessionChecked = page.waitForResponse(response => response.url().endsWith("/api/workspace") && response.request().method() === "GET");
+    failImage();
+    await sessionChecked;
+    await expect(page.getByRole("button", { name: "Retry left image", exact: true })).toBeVisible();
+    for (const name of ["Left version", "Right version", "Version"]) {
+      await expect(page.getByLabel(name, { exact: true })).toBeDisabled();
+    }
+    for (const name of ["Back to review", "Swap versions", "Overlay", "Side by side"]) {
+      await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
+    }
+    await expect(page.getByRole("slider", { name: "Reveal left version" })).toBeDisabled();
+  } finally { failImage(); release(); }
+  await expect(page.getByLabel("Version", { exact: true })).toHaveValue("3");
   await expect(page.getByLabel("Left version", { exact: true })).toHaveCount(0);
 });

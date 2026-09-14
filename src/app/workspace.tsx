@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { WorkspaceSnapshot } from "../db/workspace-repository.ts";
-import ReviewCanvas from "./review-canvas.tsx";
+import ReviewStage from "./review-stage.tsx";
 class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -22,6 +22,7 @@ const post = (value: unknown) => ({
   body: JSON.stringify(value),
 });
 export default function Workspace() {
+  const activeOperations = useRef(0);
   const imageInput = useRef<HTMLInputElement>(null);
   const revisionInput = useRef<HTMLInputElement>(null);
   const [data, setData] = useState<WorkspaceSnapshot | null>(null),
@@ -71,6 +72,7 @@ export default function Workspace() {
       .finally(() => setLoading(false));
   }, []);
   async function run(work: () => Promise<void>, localErrors = false) {
+    activeOperations.current += 1;
     setBusy(true);
     setError("");
     try {
@@ -86,7 +88,8 @@ export default function Workspace() {
       if (!localErrors || (e instanceof ApiError && e.status === 401))
         setError(e instanceof Error ? e.message : "Please try again.");
     } finally {
-      setBusy(false);
+      activeOperations.current -= 1;
+      setBusy(activeOperations.current > 0);
     }
   }
   async function start() {
@@ -216,9 +219,9 @@ export default function Workspace() {
                 No account needed · Local files · 24-hour session
               </p>
               <p className="scope-note">
-                Early preview: image versions and pinned discussions.
+                Early preview: image versions, comparison and pinned discussions.
                 <br />
-                Sharing and comparison are still being built.
+                Sharing is still being built.
               </p>
             </div>
             <div className="paper-study" aria-hidden="true">
@@ -374,8 +377,9 @@ export default function Workspace() {
                     </div>
                     <div>
                       {version && screen ? (
-                        <ReviewCanvas
-                          key={version.id}
+                        <ReviewStage
+                          key={`${screen.id}:${version.id}`}
+                          screen={screen}
                           version={version}
                           title={screen.title}
                           busy={busy}
@@ -403,7 +407,7 @@ export default function Workspace() {
                     <div className="stage-footer">
                       <span>
                         {version
-                          ? `${version.width} × ${version.height} px`
+                          ? `Review v${version.number} · ${version.width} × ${version.height} px`
                           : "Images stay in their original proportions."}
                       </span>
                       <span>Private · Local storage</span>
