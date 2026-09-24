@@ -46,7 +46,7 @@ function code(expected: string) { return (error: unknown) => typeof error === 'o
 
 test('migration history is applied once and records SHA256', async () => {
   const rows = await sql`select name, checksum from frame_note_migrations order by name`;
-  assert.deepEqual(rows.map(row => row.name), ['0000_review.sql', '0001_demo_sessions.sql', '0002_comments.sql', '0003_shares.sql']);
+  assert.deepEqual(rows.map(row => row.name), ['0000_review.sql', '0001_demo_sessions.sql', '0002_comments.sql', '0003_shares.sql', '0004_guest_comments.sql']);
   for (const row of rows) assert.match(row.checksum, /^[a-f0-9]{64}$/);
 });
 

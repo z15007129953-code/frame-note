@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { before, after, test } from 'node:test';
 import { createConnection } from '../src/db/connection.ts';
 import { migrate } from '../src/db/migrate.ts';
@@ -41,7 +41,7 @@ async function fixture(existing?: Actor) {
   await sql`insert into assets (id, workspace_id, project_id, storage_key, mime_type, byte_size, width, height, status)
     values (${assetId}, ${workspaceId}, ${project.id}, ${'test/' + assetId}, 'image/png', 100, 1200, 800, 'ready')`;
   const version = await review.addVersion(workspaceId, project.id, screen.id, memberId, assetId);
-  return { actor, versionId: version.id, screenId: screen.id };
+  return { actor, presentationId: presentation.id, versionId: version.id, screenId: screen.id };
 }
 
 test('comment repository is available', async () => {
@@ -168,6 +168,47 @@ test('database composite keys reject mismatched version, thread and author scope
     values (${b.actor.workspaceId}, ${b.actor.projectId}, ${b.versionId}, ${thread.id}, ${b.actor.memberId}, 'Foreign thread')`, code('23503'));
   await assert.rejects(sql`insert into comment_messages (workspace_id, project_id, version_id, thread_id, author_id, body)
     values (${a.actor.workspaceId}, ${a.actor.projectId}, ${a.versionId}, ${thread.id}, ${b.actor.memberId}, 'Foreign author')`, code('23503'));
+});
+
+test('guest messages reference their issuing share and enforce exactly one author', async () => {
+  const repo = await repository(); const f = await fixture();
+  const tokenHash = createHash('sha256').update(randomUUID()).digest('hex');
+  const [share] = await sql`insert into shares
+    (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+    values (${f.actor.workspaceId}, ${f.actor.projectId},
+      (select presentation_id from screens where id = ${f.screenId}), ${f.actor.memberId}, ${tokenHash},
+      clock_timestamp() + interval '1 hour', true)
+    returning id`;
+  const [thread] = await sql`insert into comment_threads
+    (workspace_id, project_id, version_id, x, y)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, 0.25, 0.75)
+    returning id`;
+
+  const [guest] = await sql`insert into comment_messages
+    (workspace_id, project_id, version_id, thread_id, author_id, guest_share_id, body)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, ${thread!.id}, null, ${share!.id}, 'Guest note')
+    returning author_id, guest_share_id, body`;
+  assert.equal(guest!.author_id, null);
+  assert.equal(guest!.guest_share_id, share!.id);
+  assert.equal(guest!.body, 'Guest note');
+
+  await assert.rejects(sql`insert into comment_messages
+    (workspace_id, project_id, version_id, thread_id, author_id, guest_share_id, body)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, ${thread!.id}, null, null, 'No author')`, code('23514'));
+  await assert.rejects(sql`insert into comment_messages
+    (workspace_id, project_id, version_id, thread_id, author_id, guest_share_id, body)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, ${thread!.id}, ${f.actor.memberId}, ${share!.id}, 'Two authors')`, code('23514'));
+
+  const foreign = await fixture();
+  const foreignTokenHash = createHash('sha256').update(randomUUID()).digest('hex');
+  const [foreignShare] = await sql`insert into shares
+    (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+    values (${foreign.actor.workspaceId}, ${foreign.actor.projectId}, ${foreign.presentationId}, ${foreign.actor.memberId},
+      ${foreignTokenHash}, clock_timestamp() + interval '1 hour', true)
+    returning id`;
+  await assert.rejects(sql`insert into comment_messages
+    (workspace_id, project_id, version_id, thread_id, author_id, guest_share_id, body)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, ${thread!.id}, null, ${foreignShare!.id}, 'Foreign share')`, code('23503'));
 });
 
 for (const operation of ['list', 'create', 'reply', 'resolve'] as const) {

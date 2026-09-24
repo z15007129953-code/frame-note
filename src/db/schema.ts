@@ -77,26 +77,29 @@ export const commentThreads = pgTable('comment_threads', {
   check('comment_threads_y_check', sql`${t.y} between 0 and 1`),
   index('comment_threads_version_order').on(t.workspaceId, t.projectId, t.versionId, t.createdAt, t.id),
 ]);
-export const commentMessages = pgTable('comment_messages', {
-  id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
-  versionId: uuid('version_id').notNull(), threadId: uuid('thread_id').notNull(), authorId: uuid('author_id').notNull(),
-  body: text('body').notNull(), createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
-}, t => [
-  foreignKey({ columns: [t.workspaceId, t.projectId, t.versionId, t.threadId], foreignColumns: [commentThreads.workspaceId, commentThreads.projectId, commentThreads.versionId, commentThreads.id] }),
-  // Author identity survives project membership revocation; writes check live membership transactionally.
-  foreignKey({ columns: [t.workspaceId, t.authorId], foreignColumns: [members.workspaceId, members.id] }),
-  check('comment_messages_body_check', sql`length(btrim(${t.body})) between 1 and 2000`),
-  index('comment_messages_thread_order').on(t.workspaceId, t.projectId, t.versionId, t.threadId, t.createdAt, t.id),
-]);
 export const shares = pgTable('shares', {
   id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
   presentationId: uuid('presentation_id').notNull(), issuerId: uuid('issuer_id').notNull(),
   tokenHash: text('token_hash').notNull().unique(), expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  revoked: boolean('revoked').notNull().default(false),
+  revoked: boolean('revoked').notNull().default(false), allowComments: boolean('allow_comments').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
 }, t => [
+  unique().on(t.workspaceId, t.projectId, t.id),
   foreignKey({ columns: [t.workspaceId, t.projectId, t.presentationId], foreignColumns: [presentations.workspaceId, presentations.projectId, presentations.id] }),
   foreignKey({ columns: [t.workspaceId, t.issuerId], foreignColumns: [members.workspaceId, members.id] }),
   check('shares_token_hash_check', sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
   index('shares_presentation_order').on(t.workspaceId, t.projectId, t.presentationId, t.createdAt, t.id),
+]);
+export const commentMessages = pgTable('comment_messages', {
+  id: id(), workspaceId: uuid('workspace_id').notNull(), projectId: uuid('project_id').notNull(),
+  versionId: uuid('version_id').notNull(), threadId: uuid('thread_id').notNull(), authorId: uuid('author_id'), guestShareId: uuid('guest_share_id'),
+  body: text('body').notNull(), createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, t => [
+  foreignKey({ columns: [t.workspaceId, t.projectId, t.versionId, t.threadId], foreignColumns: [commentThreads.workspaceId, commentThreads.projectId, commentThreads.versionId, commentThreads.id] }),
+  foreignKey({ columns: [t.workspaceId, t.authorId], foreignColumns: [members.workspaceId, members.id] }),
+  foreignKey({ columns: [t.workspaceId, t.projectId, t.guestShareId], foreignColumns: [shares.workspaceId, shares.projectId, shares.id] }),
+  check('comment_messages_author_check', sql`(${t.authorId} is null) <> (${t.guestShareId} is null)`),
+  check('comment_messages_body_check', sql`length(btrim(${t.body})) between 1 and 2000`),
+  index('comment_messages_thread_order').on(t.workspaceId, t.projectId, t.versionId, t.threadId, t.createdAt, t.id),
+  index('comment_messages_guest_share_order').on(t.workspaceId, t.projectId, t.guestShareId, t.createdAt, t.id).where(sql`${t.guestShareId} is not null`),
 ]);

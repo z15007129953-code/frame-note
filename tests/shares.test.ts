@@ -104,6 +104,20 @@ test('bearer creation stores only a SHA256 hash and snapshot exposes exactly one
   assert.deepEqual(await repo.list(f.actor, f.presentationId), [{ id: link.id, expiresAt: link.expiresAt, revoked: false }]);
 });
 
+test('new shares default to read-only and persist an explicit comment opt-in', async () => {
+  const repo = await repository(); const f = await fixture();
+  const readOnly = await repo.create(f.actor, f.presentationId, 1);
+  const [defaultRow] = await sql`select allow_comments from shares where id = ${readOnly.id}`;
+  assert.equal(defaultRow!.allow_comments, false);
+
+  const tokenHash = createHash('sha256').update(randomUUID()).digest('hex');
+  const [optedIn] = await sql`insert into shares
+    (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.presentationId}, ${f.actor.memberId}, ${tokenHash}, clock_timestamp() + interval '1 hour', true)
+    returning allow_comments`;
+  assert.equal(optedIn!.allow_comments, true);
+});
+
 test('guest invalid IDs, malformed/wrong tokens and foreign assets fail uniformly without exposing orphan or pending assets', async () => {
   const repo = await repository(); const f = await fixture(); const foreign = await fixture();
   const link = await repo.create(f.actor, f.presentationId, 24);
