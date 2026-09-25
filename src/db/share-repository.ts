@@ -8,8 +8,8 @@ import { StorageError } from '../storage/errors.ts';
 import { assertActive, assertReviewIds, authorize, ReviewError } from './review-authorization.ts';
 
 type Transaction = postgres.TransactionSql;
-export type ShareSummary = { id: string; expiresAt: string; revoked: boolean };
-export type CreatedShare = { id: string; token: string; expiresAt: string };
+export type ShareSummary = { id: string; expiresAt: string; revoked: boolean; allowComments: boolean };
+export type CreatedShare = { id: string; token: string; expiresAt: string; allowComments: boolean };
 type Locator = Actor & { presentationId: string };
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 function ownerIds(actor: Actor, id: string) { assertReviewIds(actor.workspaceId, actor.projectId, actor.memberId, id); }
@@ -40,9 +40,9 @@ export class ShareRepository {
     if (!row) throw new ReviewError('not-found');
   }
 
-  async create(actor: Actor, presentationId: string, hours: 1 | 24): Promise<CreatedShare> {
+  async create(actor: Actor, presentationId: string, hours: 1 | 24, allowComments = false): Promise<CreatedShare> {
     ownerIds(actor, presentationId);
-    if (hours !== 1 && hours !== 24) throw new ReviewError('invalid');
+      if (hours !== 1 && hours !== 24 || typeof allowComments !== 'boolean') throw new ReviewError('invalid');
     return this.connection.sql.begin(async tx => {
       await this.owner(tx, actor);
       await this.presentation(tx, actor, presentationId);
@@ -51,14 +51,14 @@ export class ShareRepository {
       if (quota!.count >= 20) throw new ReviewError('invalid');
       const token = randomBytes(32).toString('base64url');
       const [share] = await tx<{ id: string; expiresAt: string }[]>`insert into shares
-        (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at)
+        (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
         select p.workspace_id, p.id, ${presentationId}, m.id, ${hash(token)},
-          least(clock_timestamp() + ${hours} * interval '1 hour', p.expires_at, m.expires_at)
+          least(clock_timestamp() + ${hours} * interval '1 hour', p.expires_at, m.expires_at), ${allowComments}
         from projects p join members m on m.workspace_id = p.workspace_id
         where p.workspace_id = ${actor.workspaceId} and p.id = ${actor.projectId} and m.id = ${actor.memberId}
         returning id, expires_at as "expiresAt"`;
       await assertActive(tx, actor.workspaceId, actor.projectId, actor.memberId);
-      return { id: share!.id, token, expiresAt: new Date(share!.expiresAt).toISOString() };
+      return { id: share!.id, token, expiresAt: new Date(share!.expiresAt).toISOString(), allowComments };
     });
   }
 
@@ -67,7 +67,7 @@ export class ShareRepository {
     return this.connection.sql.begin(async tx => {
       await this.owner(tx, actor);
       await this.presentation(tx, actor, presentationId);
-      const rows = await tx<{ id: string; expiresAt: string; revoked: boolean }[]>`select id, expires_at as "expiresAt", revoked
+      const rows = await tx<{ id: string; expiresAt: string; revoked: boolean; allowComments: boolean }[]>`select id, expires_at as "expiresAt", revoked, allow_comments as "allowComments"
         from shares where workspace_id = ${actor.workspaceId} and project_id = ${actor.projectId}
         and presentation_id = ${presentationId} order by created_at, id limit 20`;
       await assertActive(tx, actor.workspaceId, actor.projectId, actor.memberId);
@@ -120,7 +120,7 @@ export class ShareRepository {
     }
   }
 
-  async snapshot(shareId: string, token: string): Promise<{ presentation: WorkspacePresentation; expiresAt: string }> {
+  async snapshot(shareId: string, token: string): Promise<{ presentation: WorkspacePresentation; expiresAt: string; allowComments: boolean }> {
     guestIds(shareId, token);
     return this.guest(shareId, token, async (tx, locator, tokenHash) => {
       const { workspaceId, projectId, presentationId } = locator;
@@ -138,7 +138,8 @@ export class ShareRepository {
         ) screen), '[]'::jsonb) as screens
         from presentations p where p.workspace_id = ${workspaceId} and p.project_id = ${projectId} and p.id = ${presentationId}`;
       if (!presentation) throw new ReviewError('not-found');
-      return { presentation, expiresAt: await this.live(tx, locator, shareId, tokenHash) };
+      const [share] = await tx<{ allowComments: boolean }[]>`select allow_comments as "allowComments" from shares where id = ${shareId}`;
+      return { presentation, expiresAt: await this.live(tx, locator, shareId, tokenHash), allowComments: !!share?.allowComments };
     });
   }
 

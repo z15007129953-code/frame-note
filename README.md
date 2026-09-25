@@ -70,7 +70,10 @@ discussion, post a reply, **Resolve thread**, or **Reopen thread**. Keyboard use
 can choose **Place at center**, then adjust the horizontal/vertical percentages.
 Comments are stored against exactly one version: uploading v2 keeps v1 feedback
 on v1. Switch back to read it. Refresh preserves messages and resolution state.
-The current demo owner can comment; shared visitors are read-only.
+The current demo owner can comment. Shared links are read-only by default; a
+link created with **Allow guest comments** lets visitors add pins and replies
+for that version. Guests are labeled **Guest** and cannot edit, upload, resolve,
+or reopen threads.
 
 ## Compare and share
 
@@ -79,17 +82,19 @@ keyboard/pointer-controlled **Overlay** comparison. Images keep their proportion
 and use the same scale. **Back to review** restores the original review context.
 
 Under **Share presentation**, choose a 1-hour or 24-hour duration and create a
-view-only link. Copy the full address into a separate browser session on this
-computer. Anyone holding it can see all current and future versions in that one
-presentation, without commenting or editing. Links cannot outlive their project
+view-only link. Enable **Allow guest comments** only when visitors should be
+able to add version-specific pins and replies. Copy the full address into a
+separate browser session on this computer. Anyone holding it can see all current
+and future versions in that one presentation; comment access is controlled by
+the checkbox and never grants editing or uploads. Links cannot outlive their project
 or issuer. **Revoke link** blocks subsequent reads; open visitors clear the view
 on their next access check (normally every 5 seconds). Downloaded images cannot
 be recalled. Only a SHA256 token hash is stored; the plaintext link is shown once
 and cannot be recovered after leaving or refreshing. There is a 20-link lifetime
 limit per presentation, including revoked links. Local links are not hosted URLs.
 
-Next milestones add guest comments, presentation mode, permanent login,
-signed grants, resource cleanup and full acceptance/accessibility testing.
+Next milestones add presentation mode, permanent login, signed grants, resource
+cleanup and full acceptance/accessibility testing.
 See [image storage policy](docs/local-images.md) and
 [third-party dependencies](THIRD_PARTY.md) for storage limits and license notes.
 

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
+  devIndicators: false,
   serverExternalPackages: ["postgres", "sharp"],
   turbopack: { root: process.cwd() },
   async headers() {

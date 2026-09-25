@@ -158,3 +158,32 @@ test("link numbers remain attached to their original links when another is creat
   await expect(rows.first()).toContainText("Link 1");
   await expect(rows.last()).toContainText("Link 2");
 });
+
+test("comment-enabled share lets a guest post and reply while read-only share stays blocked", async ({ page, browser }) => {
+  const presentationId = await fixture(page);
+  const response = await page.request.post("/api/shares", { headers: { origin }, data: { presentationId, hours: 1, allowComments: true } });
+  expect(response.status()).toBe(201);
+  const share = await response.json();
+  const readOnlyResponse = await page.request.post("/api/shares", { headers: { origin }, data: { presentationId, hours: 1, allowComments: false } });
+  const readOnly = await readOnlyResponse.json();
+  const visitor = await browser.newContext();
+  const view = await visitor.newPage();
+  await view.goto(`${origin}/share/${share.id}#${share.token}`);
+  await expect(view.getByRole("heading", { name: "Field notes", exact: true })).toBeVisible();
+  await expect(view.getByRole("region", { name: /Guest comments on version 2/ })).toBeVisible();
+  await view.getByRole("button", { name: "Add pin", exact: true }).click();
+  await view.getByRole("button", { name: "Place at center", exact: true }).click();
+  await view.getByLabel("Comment", { exact: true }).fill("Guest review note");
+  await view.getByRole("button", { name: "Post comment", exact: true }).click();
+  await expect(view.getByText("Guest review note", { exact: true })).toBeVisible();
+  await view.getByRole("button", { name: /Guest review note/ }).click();
+  await view.getByLabel("Reply", { exact: true }).fill("Guest follow-up");
+  await view.getByRole("button", { name: "Post reply", exact: true }).click();
+  await expect(view.getByText("Guest follow-up", { exact: true })).toBeVisible();
+  const privateComments = await page.request.get(`/api/comments?versionId=${(await (await page.request.get("/api/workspace")).json()).presentations[0].screens[0].versions.at(-1).id}`);
+  expect(privateComments.status()).toBe(200);
+  expect((await privateComments.json()).some((thread: { messages: { body: string }[] }) => thread.messages.some(message => message.body === "Guest review note"))).toBe(true);
+  const blocked = await visitor.request.post(`${origin}/api/shared/${readOnly.id}/comments`, { headers: { authorization: `Bearer ${readOnly.token}`, "content-type": "application/json" }, data: { versionId: (await (await visitor.request.get(`${origin}/api/shared/${share.id}`, { headers: { authorization: `Bearer ${share.token}` } })).json()).presentation.screens[0].versions[1].id, x: .5, y: .5, body: "Should fail" } });
+  expect(blocked.status()).toBe(404);
+  await visitor.close();
+});

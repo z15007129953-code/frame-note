@@ -7,6 +7,7 @@ type Message = {
   id: string;
   body: string;
   authorId: string;
+  isGuest: boolean;
   createdAt: string;
 };
 type Thread = {
@@ -354,7 +355,7 @@ export default function ReviewCanvas({
                 {thread.messages.map((m, i) => (
                   <li key={m.id}>
                     <div className="note">
-                      {i === 0 ? "Original comment" : "Reply"}{" "}
+                        {m.isGuest ? "Guest" : i === 0 ? "Original comment" : "Reply"}{" "}
                       <time dateTime={m.createdAt}>
                         {new Date(m.createdAt).toLocaleString()}
                       </time>

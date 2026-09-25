@@ -7,6 +7,6 @@ export async function POST(request: Request) {
   return route(async () => {
     write(request);
     const who = await actor(), data = await body(request);
-    return json(await (await services().shares).create(who, data?.presentationId, data?.hours), 201);
+    return json(await (await services().shares).create(who, data?.presentationId, data?.hours, data?.allowComments), 201);
   });
 }

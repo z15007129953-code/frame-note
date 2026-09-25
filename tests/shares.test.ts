@@ -92,7 +92,7 @@ test('bearer creation stores only a SHA256 hash and snapshot exposes exactly one
   assert.ok(!JSON.stringify(saved).includes(link.token));
   assert.equal(saved!.issuer_id, f.actor.memberId);
   const snapshot = await repo.snapshot(link.id, link.token);
-  assert.deepEqual(Object.keys(snapshot).sort(), ['expiresAt', 'presentation']);
+  assert.deepEqual(Object.keys(snapshot).sort(), ['allowComments', 'expiresAt', 'presentation']);
   assert.equal(snapshot.presentation.id, f.presentationId);
   assert.ok(!JSON.stringify(snapshot).includes(other.id));
   assert.equal(snapshot.presentation.screens[0]!.versions.length, 2);
@@ -101,7 +101,7 @@ test('bearer creation stores only a SHA256 hash and snapshot exposes exactly one
     assert.deepEqual(image, { bytes: png, mimeType: 'image/png', width: 20, height: 30 });
   }
   assert.deepEqual(await sql`select count(*)::int as count from members`, beforeMembers);
-  assert.deepEqual(await repo.list(f.actor, f.presentationId), [{ id: link.id, expiresAt: link.expiresAt, revoked: false }]);
+  assert.deepEqual(await repo.list(f.actor, f.presentationId), [{ id: link.id, expiresAt: link.expiresAt, revoked: false, allowComments: false }]);
 });
 
 test('new shares default to read-only and persist an explicit comment opt-in', async () => {

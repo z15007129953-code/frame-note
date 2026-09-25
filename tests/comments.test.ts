@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { before, after, test } from 'node:test';
 import { createConnection } from '../src/db/connection.ts';
 import { migrate } from '../src/db/migrate.ts';
@@ -209,6 +209,73 @@ test('guest messages reference their issuing share and enforce exactly one autho
   await assert.rejects(sql`insert into comment_messages
     (workspace_id, project_id, version_id, thread_id, author_id, guest_share_id, body)
     values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.versionId}, ${thread!.id}, null, ${foreignShare!.id}, 'Foreign share')`, code('23503'));
+});
+
+test('comment-enabled guest can list, create, and reply while owner can see and resolve the same thread', async () => {
+  const repo = await repository(); const f = await fixture();
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const [share] = await sql`insert into shares
+    (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.presentationId}, ${f.actor.memberId}, ${tokenHash},
+      clock_timestamp() + interval '1 hour', true) returning id`;
+  const guest = { shareId: share!.id as string, token };
+  assert.deepEqual(await repo.listGuest(guest.shareId, guest.token, f.versionId), []);
+  const created = await repo.createGuest(guest.shareId, guest.token, f.versionId, { x: 0.25, y: 0.75 }, '  Guest note  ');
+  assert.equal(created.messages[0]!.authorId, null);
+  assert.equal(created.messages[0]!.isGuest, true);
+  await repo.replyGuest(guest.shareId, guest.token, f.versionId, created.id, 'Guest reply');
+  const ownerView = await repo.list(f.actor, f.versionId);
+  assert.deepEqual(ownerView[0]!.messages.map(message => [message.body, message.authorId, message.isGuest]), [
+    ['Guest note', null, true], ['Guest reply', null, true],
+  ]);
+  await repo.setResolved(f.actor, f.versionId, created.id, true);
+  assert.equal((await repo.listGuest(guest.shareId, guest.token, f.versionId))[0]!.resolved, true);
+});
+
+test('read-only, expired, revoked, malformed, and foreign guest requests are denied without writes', async () => {
+  const repo = await repository(); const f = await fixture(); const other = await fixture();
+  const makeShare = async (allowComments: boolean, expires = "clock_timestamp() + interval '1 hour'") => {
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const [share] = await sql`insert into shares
+      (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+      values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.presentationId}, ${f.actor.memberId}, ${tokenHash}, ${sql.unsafe(expires)}, ${allowComments}) returning id`;
+    return { id: share!.id as string, token };
+  };
+  const readOnly = await makeShare(false);
+  await assert.rejects(repo.listGuest(readOnly.id, readOnly.token, f.versionId), code('not-found'));
+  await assert.rejects(repo.createGuest(readOnly.id, readOnly.token, f.versionId, { x: 0, y: 0 }, 'Denied'), code('not-found'));
+  const enabled = await makeShare(true);
+  await assert.rejects(repo.listGuest(enabled.id, enabled.token, other.versionId), code('not-found'));
+  await assert.rejects(repo.createGuest(enabled.id, enabled.token, f.versionId, { x: -0.1, y: 0 }, 'Invalid'), code('invalid'));
+  await assert.rejects(repo.createGuest(enabled.id, enabled.token, f.versionId, { x: 0, y: 0 }, ' '), code('invalid'));
+  await assert.rejects(repo.listGuest(enabled.id, 'bad', f.versionId), code('not-found'));
+  await sql`update shares set revoked = true where id = ${enabled.id}`;
+  await assert.rejects(repo.createGuest(enabled.id, enabled.token, f.versionId, { x: 0, y: 0 }, 'Revoked'), code('not-found'));
+  const expired = await makeShare(true, "clock_timestamp() - interval '1 second'");
+  await assert.rejects(repo.listGuest(expired.id, expired.token, f.versionId), code('not-found'));
+  await sql`update project_members set role = 'collaborator' where project_id = ${f.actor.projectId}`;
+  const active = await makeShare(true);
+  await assert.rejects(repo.listGuest(active.id, active.token, f.versionId), code('not-found'));
+  assert.equal((await sql`select count(*)::int as count from comment_threads where version_id = ${f.versionId}`)[0]!.count, 0);
+});
+
+test('guest comment quotas and version scope remain bounded and owner-only resolution is preserved', async () => {
+  const repo = await repository(); const f = await fixture();
+  const token = randomBytes(32).toString('base64url');
+  const [share] = await sql`insert into shares
+    (workspace_id, project_id, presentation_id, issuer_id, token_hash, expires_at, allow_comments)
+    values (${f.actor.workspaceId}, ${f.actor.projectId}, ${f.presentationId}, ${f.actor.memberId}, ${createHash('sha256').update(token).digest('hex')},
+      clock_timestamp() + interval '1 hour', true) returning id`;
+  await sql`insert into comment_threads (workspace_id, project_id, version_id, x, y)
+    select ${f.actor.workspaceId}::uuid, ${f.actor.projectId}::uuid, ${f.versionId}::uuid, 0, 0 from generate_series(1, 100)`;
+  await assert.rejects(repo.createGuest(share!.id, token, f.versionId, { x: 0, y: 0 }, 'Over quota'), code('invalid'));
+  const existing = await repo.createGuest(share!.id, token, f.versionId, { x: 0, y: 0 }, 'Should not happen').catch(() => null);
+  assert.equal(existing, null);
+  const thread = await repo.list(f.actor, f.versionId);
+  assert.equal(thread.length, 100);
+  await assert.rejects(repo.setResolved({ ...f.actor, memberId: randomUUID() }, f.versionId, thread[0]!.id, true), code('forbidden'));
 });
 
 for (const operation of ['list', 'create', 'reply', 'resolve'] as const) {

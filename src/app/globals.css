@@ -14,8 +14,12 @@
 * {
   box-sizing: border-box;
 }
+html {
+  overflow-x: hidden;
+}
 body {
   margin: 0;
+  overflow-x: hidden;
   background: var(--paper);
   color: var(--ink);
   font-family: "Hanken Grotesk", sans-serif;
@@ -130,6 +134,7 @@ h3 {
   align-items: center;
   padding: 16px 24px;
   gap: 16px;
+  min-width: 0;
 }
 .wordmark {
   text-decoration: none;
@@ -138,6 +143,8 @@ h3 {
   display: flex;
   gap: 12px;
   align-items: center;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .mark {
   color: var(--accent);
@@ -157,6 +164,8 @@ h3 {
 .local-label {
   font-size: 0.75rem;
   color: var(--muted);
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 .skip {
   position: absolute;
@@ -383,6 +392,8 @@ form label {
 .stage {
   border: 1px solid var(--line);
   background: var(--surface);
+  min-width: 0;
+  overflow: hidden;
 }
 .stage-toolbar,
 .stage-footer {
@@ -392,6 +403,7 @@ form label {
   padding: 12px 16px;
   gap: 16px;
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 .stage-toolbar {
   border-bottom: 1px solid var(--line);
@@ -609,6 +621,8 @@ form label {
 }
 .artboard {
   min-height: 340px;
+  min-width: 0;
+  width: 100%;
   padding: 24px;
   display: flex;
   align-items: center;
@@ -721,7 +735,10 @@ form label {
 }
 .pin-image {
   position: relative;
-  flex-shrink: 0;
+  width: 100%;
+  flex-shrink: 1;
+  max-width: 100%;
+  min-width: 0;
 }
 .artboard .pin-image img {
   width: 100%;
@@ -876,6 +893,15 @@ form label {
     scroll-behavior: auto !important;
   }
 }
+@media (max-width: 520px) {
+  .topbar { padding-inline: 16px; }
+  .topbar .local-label { min-width: 0; max-width: 42%; flex: 1 1 auto; }
+  .shared-page { padding-inline: 16px; }
+  .shared-page * { max-width: 100%; }
+  .stage-toolbar, .stage-footer { align-items: flex-start; flex-wrap: wrap; }
+  .stage-toolbar > *, .stage-footer > * { max-width: 100%; }
+  .stage-toolbar { overflow: hidden; }
+}
 .share-manager {
   margin-top: 48px;
   padding-top: 24px;
@@ -885,11 +911,12 @@ form label {
 }
 .share-manager > .note { max-width: 75ch; }
 .share-create { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
+.share-comments-option { display: flex; align-items: center; gap: 8px; width: fit-content; }
 .share-create label, .share-created { display: grid; gap: 8px; min-width: 0; }
 .share-created input { width: 100%; }
 .share-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .share-list li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 12px; border-top: 1px solid var(--line); }
 .share-list small { display: block; color: var(--muted); }
-.shared-page { max-width: 1200px; margin: auto; padding: 32px 24px; }
+.shared-page { max-width: 1200px; min-width: 0; margin: auto; padding: 32px 24px; }
 .shared-page h1 { font-size: 1.953rem; overflow-wrap: anywhere; }
 .shared-notice { margin-top: 24px; max-width: 75ch; }

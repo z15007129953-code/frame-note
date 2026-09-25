@@ -1,8 +1,9 @@
 # Development checkpoint — 14 September 2026
 
-Frame Note now has a runnable first local browser slice. It is **not** the
+Frame Note now has a runnable local browser slice. It is **not** the
 finished review product. The user accepted the upload/version/pin-comments stage
-and comparison stages on September 14; read-only sharing is awaiting acceptance.
+and comparison stages on September 14; read-only sharing and opt-in guest comments
+are implemented locally and awaiting acceptance.
 Full product acceptance is still pending. No public remote,
 cloud deployment or domain configuration is part of this checkpoint.
 
@@ -38,6 +39,13 @@ presentation or leaving clears that transient value. Manual copy is available
 when clipboard permission is denied. The gallery-worktable interface and image
 proportions remain unchanged; sharing controls use the same Impeccable design.
 
+Comment-enabled links opt into guest pin comments. Visitors can place a pin on a
+specific version, read the shared thread and reply; messages are labeled Guest.
+They cannot upload, edit, resolve or reopen. Owners see the same thread in the
+private review page and retain resolve/reopen controls. Version changes reset the
+guest comment context, and revocation/expiry clears the shared page and comment
+state.
+
 Next.js 16.3.4 / React 19.3.0 call permission-checked Node routes. Random 32-byte
 demo tokens are stored only as SHA256 hashes; cookies are HttpOnly, SameSite
 Strict and expire after 24 hours. Writes require the exact configured Origin.
@@ -53,7 +61,7 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 ## Verified checkpoint
 
 - 347 unit tests; 88 real PostgreSQL integration tests, no skips.
-- Twenty-one Chrome journeys pass against the production server;
+- Twenty-two Chrome journeys pass against the production server;
   browser tests cover persistence/version selection, second-session isolation,
   cross-origin refusal, invalid-image recovery, image retry, busy selection,
   new-session draft isolation and session-expiry recovery. The comment journey
@@ -65,7 +73,7 @@ to avoid deleting possibly committed data; reconciliation is still pending.
   denial, screen reset and session loss on image reads, swaps and re-entry. Pointer checks also
   include emulated Chrome touch input. A held-upload/image-failure regression
   verifies that the session check cannot unlock controls before saving finishes.
-- Seven sharing journeys cover separate-session viewing, version switching,
+- Eight sharing journeys cover separate-session viewing, version switching,
   owner/private endpoint denial, foreign image denial, token-free request URLs,
   revocation, 503 retry, missing/invalid fragments, copy/manual-copy feedback,
   presentation-switch token clearing, stable link numbering, owner session loss
@@ -103,8 +111,9 @@ to avoid deleting possibly committed data; reconciliation is still pending.
 - 100 threads/version, 100 messages/thread and 2000 characters/message. Comment
   text requests have a 16 KiB JSON cap to accommodate non-ASCII text; resolution
   and ordinary JSON requests retain the 4096-byte cap.
-- 20 lifetime links/presentation, including revoked links. No guest comments,
-  public-without-token links, presence, signed grants, cleanup workflow,
+- 20 lifetime links/presentation, including revoked links. Guest comments are
+  opt-in per link; read-only links remain comment-free. No public-without-token links,
+  presence, signed grants, cleanup workflow,
   presentation mode or UI reordering yet. Downloaded shared images cannot be recalled.
 - Uploads have no idempotency key: after an ambiguous network failure, inspect
   current versions before retrying. Screen creation precedes image upload.
