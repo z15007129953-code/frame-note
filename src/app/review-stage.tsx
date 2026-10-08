@@ -3,10 +3,12 @@ import { useRef, useState, type ComponentProps } from "react";
 import type { WorkspaceScreen } from "../db/workspace-repository.ts";
 import ReviewCanvas from "./review-canvas.tsx";
 import VersionComparison from "./version-comparison.tsx";
+import { useLanguage } from "./i18n";
 
 type Props = ComponentProps<typeof ReviewCanvas> & { screen: WorkspaceScreen };
 
 export default function ReviewStage({ screen, ...review }: Props) {
+  const { t } = useLanguage();
   const [comparing, setComparing] = useState(false);
   const sessionCheck = useRef<Promise<void> | null>(null);
   const canCompare = screen.versions.length > 1;
@@ -22,20 +24,21 @@ export default function ReviewStage({ screen, ...review }: Props) {
   return (
     <div className="review-stage">
       <div className="review-mode-bar">
-        <div className="mode-buttons" aria-label="Review mode">
+        <div className="mode-buttons" aria-label={t("review")}>
           <button className="secondary" aria-pressed={!comparing}
             disabled={review.busy} onClick={() => setComparing(false)}>
-            {comparing ? "Back to review" : "Review"}
+            {comparing ? t("backReview") : t("review")}
           </button>
           <button className="secondary" aria-pressed={comparing}
+            aria-label="Compare versions"
             disabled={review.busy || !canCompare}
             aria-describedby={!canCompare ? "comparison-guidance" : undefined}
             onClick={() => setComparing(true)}>
-            Compare versions
+            {t("compare")}
           </button>
         </div>
-        {!canCompare && <p id="comparison-guidance" className="note">Upload another version to compare.</p>}
-        {comparing && <p className="note">Your comments stay with review v{review.version.number}.</p>}
+        {!canCompare && <p id="comparison-guidance" className="note">{t("uploadAnother")}</p>}
+        {comparing && <p className="note">{t("commentsStay", { n: review.version.number })}</p>}
       </div>
       <div hidden={comparing}>
         <ReviewCanvas {...review} />

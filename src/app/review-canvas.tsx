@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { WorkspaceVersion } from "../db/workspace-repository.ts";
 import { normalizePin, type Pin } from "../domain/pins.ts";
+import { useLanguage } from "./i18n";
 
 type Message = {
   id: string;
@@ -38,6 +39,7 @@ export default function ReviewCanvas({
   request,
   execute,
 }: Props) {
+  const { t } = useLanguage();
   const [imageState, setImageState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -104,10 +106,10 @@ export default function ReviewCanvas({
   return (
     <div className="review-canvas">
       <div className="artboard">
-        {imageState === "loading" && <p role="status">Loading image…</p>}
+        {imageState === "loading" && <p role="status">{t("loadingImage", { side: "" })}</p>}
         {imageState === "error" ? (
           <div className="empty" role="alert">
-            <p>The image could not be loaded.</p>
+            <p>{t("imageFailed")}</p>
             <button
               className="secondary"
               onClick={() => {
@@ -115,7 +117,7 @@ export default function ReviewCanvas({
                 setAttempt(attempt + 1);
               }}
             >
-              Retry image
+              {t("retryImage")}
             </button>
           </div>
         ) : (
@@ -168,17 +170,18 @@ export default function ReviewCanvas({
       </div>
       <section
         className="discussion"
-        aria-label={`Comments on version ${version.number}`}
+        aria-label={`${t("comments")} / v${version.number}`}
       >
         <div className="discussion-heading">
           <div>
             <h3>
-              Comments <span className="note">/ v{version.number}</span>
+              {t("comments")} <span className="note">/ v{version.number}</span>
             </h3>
-            <p className="note">Feedback stays attached to this version.</p>
+            <p className="note">{t("feedbackAttached")}</p>
           </div>
           <button
             className="secondary"
+            aria-label="Add pin"
             disabled={busy || loading || !!error || imageState !== "ready"}
             aria-pressed={placing}
             onClick={() => {
@@ -188,10 +191,10 @@ export default function ReviewCanvas({
               setSelected("");
             }}
           >
-            Add pin
+            {t("addPin")}
           </button>
         </div>
-        {loading && <p role="status">Loading comments…</p>}
+        {loading && <p role="status">{t("loadingComments")}</p>}
         {error && (
           <div role="alert">
             <p>{error}</p>
@@ -204,21 +207,21 @@ export default function ReviewCanvas({
                 })
               }
             >
-              Reload comments
+              {t("reloadComments")}
             </button>
           </div>
         )}
         {placing && (
           <div className="pin-composer">
             <p>
-              Click the image to mark a location, or place a pin at the center.
+              {t("clickImage")}
             </p>
             <button
               className="quiet"
               disabled={busy}
               onClick={() => choosePin({ x: 0.5, y: 0.5 })}
             >
-              Place at center
+              {t("placeCenter")}
             </button>
             {pin && (
               <form
@@ -243,7 +246,7 @@ export default function ReviewCanvas({
               >
                 <div className="pin-coordinates">
                   <label>
-                    Horizontal position (%)
+                    {t("horizontal")}
                     <input
                       type="number"
                       min="0"
@@ -258,7 +261,7 @@ export default function ReviewCanvas({
                     />
                   </label>
                   <label>
-                    Vertical position (%)
+                    {t("vertical")}
                     <input
                       type="number"
                       min="0"
@@ -273,7 +276,7 @@ export default function ReviewCanvas({
                     />
                   </label>
                 </div>
-                <label htmlFor="pin-comment">Comment</label>
+                <label htmlFor="pin-comment">{t("comment")}</label>
                 <textarea
                   ref={commentInput}
                   id="pin-comment"
@@ -285,7 +288,7 @@ export default function ReviewCanvas({
                 />
                 <div className="comment-actions">
                   <button className="primary" disabled={busy || !text.trim()}>
-                    Post comment
+                    {t("postComment")}
                   </button>
                   <button
                     type="button"
@@ -297,7 +300,7 @@ export default function ReviewCanvas({
                       setText("");
                     }}
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </form>
@@ -305,25 +308,25 @@ export default function ReviewCanvas({
           </div>
         )}
         {!loading && !error && threads.length === 0 && (
-          <p className="note">No comments on this version yet.</p>
+          <p className="note">{t("noComments")}</p>
         )}
         <div className="discussion-columns">
-          <nav aria-label="Comment threads">
-            {threads.map((t, i) => (
+          <nav aria-label={t("comments")}>
+            {threads.map((threadItem, i) => (
               <button
-                key={t.id}
-                className={`thread-link ${selected === t.id ? "selected" : ""}`}
+                key={threadItem.id}
+                className={`thread-link ${selected === threadItem.id ? "selected" : ""}`}
                 disabled={busy}
-                aria-pressed={selected === t.id}
-                onClick={() => selectThread(t.id)}
+                aria-pressed={selected === threadItem.id}
+                onClick={() => selectThread(threadItem.id)}
               >
                 <span>
-                  #{i + 1} · {t.resolved ? "Resolved" : "Open"}
+                  #{i + 1} · {threadItem.resolved ? t("resolved") : t("open")}
                 </span>
-                <span>{t.messages[0]?.body}</span>
+                <span>{threadItem.messages[0]?.body.length > 24 ? `${threadItem.messages[0].body.slice(0, 24)}…` : threadItem.messages[0]?.body}</span>
                 <small>
-                  {t.messages.length}{" "}
-                  {t.messages.length === 1 ? "message" : "messages"}
+                  {threadItem.messages.length}{" "}
+                  {threadItem.messages.length === 1 ? t("message") : t("messages")}
                 </small>
               </button>
             ))}
@@ -331,7 +334,7 @@ export default function ReviewCanvas({
           {thread && (
             <div className="thread-detail">
               <div className="discussion-heading">
-                <h4>Discussion #{threads.indexOf(thread) + 1}</h4>
+                <h4>{t("discussion", { n: threads.indexOf(thread) + 1 })}</h4>
                 <button
                   className="secondary"
                   disabled={busy}
@@ -348,14 +351,14 @@ export default function ReviewCanvas({
                     })
                   }
                 >
-                  {thread.resolved ? "Reopen thread" : "Resolve thread"}
+                  {thread.resolved ? t("reopen") : t("resolve")}
                 </button>
               </div>
               <ol className="messages">
                 {thread.messages.map((m, i) => (
                   <li key={m.id}>
                     <div className="note">
-                        {m.isGuest ? "Guest" : i === 0 ? "Original comment" : "Reply"}{" "}
+                        {m.isGuest ? t("guest") : i === 0 ? t("original") : t("reply")}{" "}
                       <time dateTime={m.createdAt}>
                         {new Date(m.createdAt).toLocaleString()}
                       </time>
@@ -377,7 +380,7 @@ export default function ReviewCanvas({
                   });
                 }}
               >
-                <label htmlFor="comment-reply">Reply</label>
+                <label htmlFor="comment-reply">{t("reply")}</label>
                 <textarea
                   id="comment-reply"
                   required
@@ -387,7 +390,7 @@ export default function ReviewCanvas({
                   onChange={(e) => setReply(e.target.value)}
                 />
                 <button className="secondary" disabled={busy || !reply.trim()}>
-                  Post reply
+                  {t("postReply")}
                 </button>
               </form>
             </div>

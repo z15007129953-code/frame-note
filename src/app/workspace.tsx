@@ -3,6 +3,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { WorkspaceSnapshot } from "../db/workspace-repository.ts";
 import ReviewStage from "./review-stage.tsx";
 import ShareManager from "./share-manager.tsx";
+import { LanguageToggle, useLanguage } from "./i18n";
+import { Icon } from "./icons";
+type WorkspaceView = "overview" | "projects" | "feedback" | "share" | "settings";
 class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -23,6 +26,7 @@ const post = (value: unknown) => ({
   body: JSON.stringify(value),
 });
 export default function Workspace() {
+  const { t } = useLanguage();
   const activeOperations = useRef(0);
   const imageInput = useRef<HTMLInputElement>(null);
   const revisionInput = useRef<HTMLInputElement>(null);
@@ -37,6 +41,7 @@ export default function Workspace() {
     [screenTitle, setScreenTitle] = useState(""),
     [file, setFile] = useState<File | null>(null),
     [revision, setRevision] = useState<File | null>(null);
+  const [activeView, setActiveView] = useState<WorkspaceView>("overview");
   const presentation =
     data?.presentations.find((p) => p.id === presentationId) ??
     data?.presentations[0];
@@ -56,6 +61,34 @@ export default function Workspace() {
     setFile(null);
     clearRevision();
     if (imageInput.current) imageInput.current.value = "";
+  }
+  function navigateTo(view: WorkspaceView, selector?: string) {
+    setActiveView(view);
+    if (selector) {
+      window.requestAnimationFrame(() => {
+        document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
+  function FilePicker({ id, label, file, inputRef, onChange }: { id: string; label: string; file: File | null; inputRef: React.RefObject<HTMLInputElement | null>; onChange: (file: File | null) => void }) {
+    return (
+      <div className="file-picker">
+        <input
+          id={id}
+          className="file-input-hidden"
+          aria-label={label}
+          disabled={busy}
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        />
+        <label className="file-picker-control" htmlFor={id}>
+          <span className="file-picker-button">{t("chooseFile")}</span>
+          <span className="file-picker-name">{file?.name ?? t("noFileSelected")}</span>
+        </label>
+      </div>
+    );
   }
   async function refresh() {
     const result = await api("/api/workspace");
@@ -157,15 +190,15 @@ export default function Workspace() {
   }
   return (
     <>
+      <a className="skip" href="#main">{t("skip")}</a>
       <header className="topbar">
-        <a className="wordmark" href="/" aria-label="Frame Note home">
-          <span className="mark" aria-hidden="true">
-            ◩
-          </span>{" "}
-          frame note<span className="edition">/ review studio</span>
+        <a className="wordmark" href="/" aria-label={t("home")}>
+          <span className="mark" aria-hidden="true"><Icon name="brand" size={22} strokeWidth={2} /></span>
+          frame note<span className="edition">{t("edition")}</span>
         </a>
         <div className="top-actions">
-          <span className="local-label">Local preview</span>
+          <span className="local-label">{t("local")}</span>
+          <LanguageToggle />
           {data && (
             <button
               className="quiet"
@@ -181,7 +214,7 @@ export default function Workspace() {
                 })
               }
             >
-              Sign out
+              {t("signOut")}
             </button>
           )}
         </div>
@@ -191,66 +224,70 @@ export default function Workspace() {
           <div className="error" role="alert">
             {error}
             <button className="quiet" onClick={() => setError("")}>
-              Dismiss
+            {t("dismiss")}
             </button>
           </div>
         )}
         {loading ? (
           <div className="loading" role="status">
-            Opening your worktable…
+            {t("opening")}
           </div>
         ) : !data ? (
-          <section className="welcome">
-            <div className="intro">
-              <p className="eyebrow">A little space for a closer look</p>
-              <h1>
-                Keep the work
-                <br />
-                in the picture.
-              </h1>
-              <p className="lead">
-                Bring your screens together. Keep every revision in view. Make
-                room for a more considered review.
-              </p>
-              <button className="primary" disabled={busy} onClick={start}>
-                {busy ? "Preparing your space…" : "Start a private demo"}
-                <span aria-hidden="true"> ↗</span>
-              </button>
-              <p className="note">
-                No account needed · Local files · 24-hour session
-              </p>
-              <p className="scope-note">
-                Early preview: image versions, comparison and pinned discussions.
-                <br />
-                View-only sharing is available. Guest comments are still being built.
-              </p>
-            </div>
-            <div className="paper-study" aria-hidden="true">
-              <div className="study-caption">FRAME NOTE / WORK IN PROGRESS</div>
-              <div className="study-sheet back"></div>
-              <div className="study-sheet front">
-                <span>01 — A place for the work</span>
-                <div className="study-shape"></div>
-                <p>
-                  A different
-                  <br />
-                  point of view.
-                </p>
-                <span className="study-foot">Collect. Consider. Refine.</span>
+          <section className="welcome app-home">
+            <aside className="app-rail" aria-label="Workspace tools">
+              <span className="rail-logo" aria-hidden="true"><Icon name="brand" size={19} /></span><span className="rail-spacer" aria-hidden="true" />
+              <button className={`rail-tool ${activeView === "overview" ? "active" : ""}`} aria-label={t("reviewSpace")} aria-pressed={activeView === "overview"} type="button" onClick={() => navigateTo("overview", ".welcome-main")}><Icon name="home" /></button>
+              <button className={`rail-tool ${activeView === "projects" ? "active" : ""}`} aria-label={t("presentations")} aria-pressed={activeView === "projects"} type="button" onClick={() => navigateTo("projects", ".welcome-list")}><Icon name="projects" /></button>
+              <button className={`rail-tool ${activeView === "feedback" ? "active" : ""}`} aria-label={t("comments")} aria-pressed={activeView === "feedback"} type="button" onClick={() => navigateTo("feedback", ".welcome-main")}><Icon name="feedback" /></button>
+              <span className="rail-spacer" aria-hidden="true" /><span className="rail-avatar" aria-hidden="true">FN</span>
+            </aside>
+            <aside className="welcome-list">
+              <div className="workspace-switcher"><span className="workspace-avatar">FN</span><span><strong>Frame Note</strong><small>{t("reviewSpace")}</small></span><Icon name="arrow-up-right" size={15} /></div>
+              <div className="welcome-search"><Icon name="search" size={16} /> <span>{t("recent")}</span><kbd>⌘ K</kbd></div>
+              <div className="welcome-nav-label">{t("essentials")}</div>
+              <button className={`welcome-nav-item ${activeView === "overview" ? "active" : ""}`} type="button" aria-pressed={activeView === "overview"} onClick={() => navigateTo("overview", ".welcome-main")}><Icon name="home" size={16} /><span>{t("overview")}</span></button>
+              <button className={`welcome-nav-item ${activeView === "projects" ? "active" : ""}`} type="button" aria-pressed={activeView === "projects"} onClick={() => navigateTo("projects", ".welcome-list")}><Icon name="projects" size={16} /><span>{t("presentations")}</span></button>
+              <button className={`welcome-nav-item ${activeView === "feedback" ? "active" : ""}`} type="button" aria-pressed={activeView === "feedback"} onClick={() => navigateTo("feedback", ".welcome-main")}><Icon name="feedback" size={16} /><span>{t("comments")}</span></button>
+              <div className="welcome-list-heading"><span>{t("presentations")}</span><span>0</span></div>
+              <div className="welcome-empty"><span className="welcome-empty-icon"><Icon name="plus" /></span><strong>{t("noProjects")}</strong><p>{t("startHereBody")}</p></div>
+            </aside>
+            <div className="welcome-main">
+              <div className="welcome-main-head"><div><p className="breadcrumb">{t("overview")}</p><h1>{t("dashboard")}</h1></div><div className="head-actions"><LanguageToggle /><span className="status-pill">{t("privateWorkspace")}</span></div></div>
+              <div className="welcome-card">
+                <div className="welcome-card-icon"><Icon name="layers" size={24} /></div><p className="eyebrow">{t("startHere")}</p><h2>{t("heroTitle")}</h2><p className="lead">{t("heroLead")}</p><button aria-label="Start a private demo" className="primary" disabled={busy} onClick={start}>{busy ? t("preparing") : t("startDemo")} <Icon name="arrow-up-right" size={17} /></button>
               </div>
-              <div className="study-index">
-                Your ideas, with room to breathe.
-              </div>
+              <div className="welcome-compose"><Icon name="upload" size={17} /><span>{t("preview")}</span><span className="compose-send"><Icon name="arrow-up-right" size={16} /></span></div>
             </div>
+            <aside className="welcome-side">
+              <div className="info-card"><div className="info-card-head"><strong>{t("howItWorks")}</strong><Icon name="arrow-up-right" size={16} /></div><ol><li>{t("stepUpload")}</li><li>{t("stepCompare")}</li><li>{t("stepDiscuss")}</li></ol></div>
+              <div className="info-card info-card-soft"><div className="info-card-head"><strong>{t("sharingPreview")}</strong><Icon name="share" size={16} /></div><p>{t("shareHelp")}</p></div>
+            </aside>
           </section>
         ) : (
           <div className="workspace">
+            <aside className="app-rail" aria-label="Workspace tools">
+              <span className="rail-logo" aria-hidden="true"><Icon name="brand" size={19} /></span>
+              <span className="rail-spacer" aria-hidden="true" />
+              <button className={`rail-tool ${activeView === "overview" ? "active" : ""}`} aria-label="Review workspace" aria-pressed={activeView === "overview"} type="button" onClick={() => navigateTo("overview", ".review-area")}><Icon name="home" /></button>
+              <button className={`rail-tool ${activeView === "projects" ? "active" : ""}`} aria-label="Presentations" aria-pressed={activeView === "projects"} type="button" onClick={() => navigateTo("projects", ".sidebar")}><Icon name="projects" /></button>
+              <button className={`rail-tool ${activeView === "feedback" ? "active" : ""}`} aria-label="Comments" aria-pressed={activeView === "feedback"} type="button" onClick={() => navigateTo("feedback", "#feedback-section")}><Icon name="feedback" /></button>
+              <button className={`rail-tool ${activeView === "share" ? "active" : ""}`} aria-label="Share links" aria-pressed={activeView === "share"} type="button" onClick={() => navigateTo("share", "#share-section")}><Icon name="share" /></button>
+              <span className="rail-spacer" aria-hidden="true" />
+              <button className={`rail-tool ${activeView === "settings" ? "active" : ""}`} aria-label="Settings" aria-pressed={activeView === "settings"} type="button" onClick={() => navigateTo("settings", "#settings-section")}><Icon name="settings" /></button>
+              <span className="rail-avatar" aria-hidden="true">FN</span>
+            </aside>
             <aside className="sidebar">
+              <div className="workspace-switcher"><span className="workspace-avatar">FN</span><span><strong>Frame Note</strong><small>{t("reviewSpace")}</small></span><Icon name="arrow-up-right" size={15} /></div>
+              <div className="sidebar-search"><Icon name="search" size={16} /><span>{t("recent")}</span><kbd>⌘ K</kbd></div>
+              <div className="sidebar-nav-label">{t("essentials")}</div>
+              <button className={`sidebar-nav-item ${activeView === "overview" ? "active" : ""}`} type="button" aria-pressed={activeView === "overview"} onClick={() => navigateTo("overview", ".review-area")}><Icon name="home" size={16} /><span>{t("overview")}</span></button>
+              <button className={`sidebar-nav-item ${activeView === "projects" ? "active" : ""}`} type="button" aria-pressed={activeView === "projects"} onClick={() => navigateTo("projects", ".sidebar-heading")}><Icon name="projects" size={16} /><span>{t("presentations")}</span></button>
+              <button className={`sidebar-nav-item ${activeView === "feedback" ? "active" : ""}`} type="button" aria-pressed={activeView === "feedback"} onClick={() => navigateTo("feedback", "#feedback-section")}><Icon name="feedback" size={16} /><span>{t("comments")}</span></button>
               <div className="sidebar-heading">
-                <p className="eyebrow">Your private worktable</p>
-                <h1>Presentations</h1>
+                <p className="eyebrow">{t("worktable")}</p>
+                <h1>{t("presentations")}</h1>
                 <p className="note">
-                  Saved locally. Available during this demo.
+                  {t("saved")}
                 </p>
               </div>
               <nav aria-label="Presentations">
@@ -261,6 +298,7 @@ export default function Workspace() {
                     aria-pressed={presentation?.id === p.id}
                     className={`presentation-link ${presentation?.id === p.id ? "selected" : ""}`}
                     onClick={() => {
+                      setActiveView("projects");
                       setPresentationId(p.id);
                       setScreenId("");
                       setVersionNumber("");
@@ -274,7 +312,7 @@ export default function Workspace() {
                       {p.title}
                       <small>
                         {p.screens.length}{" "}
-                        {p.screens.length === 1 ? "screen" : "screens"}
+                        {p.screens.length === 1 ? t("screen") : t("screens")}
                       </small>
                     </span>
                     <span aria-hidden="true">↗</span>
@@ -282,45 +320,52 @@ export default function Workspace() {
                 ))}
               </nav>
               <form onSubmit={create} className="create-form">
-                <label htmlFor="presentation-title">Presentation title</label>
+                <label htmlFor="presentation-title">{t("presentationTitle")}</label>
                 <input
                   id="presentation-title"
+                  aria-label="Presentation title"
                   disabled={busy}
                   value={presentationTitle}
                   onChange={(e) => setPresentationTitle(e.target.value)}
                   maxLength={160}
                   required
-                  placeholder="e.g. Autumn collection"
+                  placeholder={t("presentationPlaceholder")}
                 />
                 <button
+                  aria-label="Create presentation"
                   disabled={busy || !presentationTitle.trim()}
                   className="secondary"
                 >
-                  Create presentation
+                  <span aria-hidden="true">{t("createPresentation")}</span>
                 </button>
               </form>
               <div className="sidebar-footer">
                 <span className="status-dot" />
-                Private demo workspace
+                {t("privateWorkspace")}
                 <br />
-                <small>Only this browser session has access.</small>
+                <small>{t("onlyBrowser")}</small>
               </div>
             </aside>
             <section
               className="review-area"
-              aria-label="Presentation workspace"
+              aria-label={t("presentations")}
             >
+              {activeView === "settings" && (
+                <section className="settings-panel" id="settings-section" aria-labelledby="settings-title">
+                  <div><p className="eyebrow">{t("settings")}</p><h3 id="settings-title">{t("workspaceSettings")}</h3><p className="note">{t("settingsHelp")}</p></div>
+                  <div className="settings-row"><span><strong>{t("language")}</strong><small>{t("languageHelp")}</small></span><LanguageToggle /></div>
+                </section>
+              )}
               <div className="review-heading">
                 <div>
                   <p className="eyebrow">
-                    Design review /{" "}
-                    {presentation ? "In progress" : "Getting started"}
+                    {t("designReview")} / {presentation ? t("inProgress") : t("gettingStarted")}
                   </p>
-                  <h2>{presentation?.title ?? "Start with a presentation."}</h2>
+                  <h2>{presentation?.title ?? t("startPresentation")}</h2>
                 </div>
                 {presentation && (
                   <span className="count">
-                    {presentation.screens.length} screens
+                    {presentation.screens.length} {t("screens")}
                   </span>
                 )}
               </div>
@@ -329,15 +374,12 @@ export default function Workspace() {
                   <span className="empty-symbol" aria-hidden="true">
                     ⊞
                   </span>
-                  <h3>A clear space for your next idea.</h3>
-                  <p>
-                    Create a presentation on the left, then add your first
-                    design image.
-                  </p>
+                  <h3>{t("clearSpace")}</h3>
+                  <p>{t("createThenAdd")}</p>
                 </div>
               ) : (
                 <>
-                  <div className="screen-strip" aria-label="Screens">
+                  <div className="screen-strip" aria-label={t("screens")}>
                     {presentation.screens.map((s, i) => (
                       <button
                         disabled={busy}
@@ -355,14 +397,14 @@ export default function Workspace() {
                       </button>
                     ))}
                   </div>
-                  <div className="stage">
+                  <div className="stage" id="feedback-section">
                     <div className="stage-toolbar">
-                      <span>{screen?.title ?? "No screens yet"}</span>
+                      <span>{screen?.title ?? t("noScreens")}</span>
                       {version && (
                         <label className="version-picker">
-                          Version
+                          {t("version")}
                           <select
-                            aria-label="Version"
+                            aria-label={t("version")}
                             disabled={busy}
                             value={String(version.number)}
                             onChange={(e) => setVersionNumber(e.target.value)}
@@ -394,13 +436,11 @@ export default function Workspace() {
                           </span>
                           <h3>
                             {screen
-                              ? "This screen needs an image."
-                              : "Let the work speak."}
+                              ? t("needsImage") : t("letWork")}
                           </h3>
                           <p>
                             {screen
-                              ? "Use “Upload new version” below to finish this screen."
-                              : "Upload a PNG, JPEG or WebP image to begin."}
+                              ? t("finishScreen") : t("uploadBegin")}
                           </p>
                         </div>
                       )}
@@ -408,71 +448,57 @@ export default function Workspace() {
                     <div className="stage-footer">
                       <span>
                         {version
-                          ? `Review v${version.number} · ${version.width} × ${version.height} px`
-                          : "Images stay in their original proportions."}
+                          ? t("reviewSize", { n: version.number, w: version.width, h: version.height }) : t("originalProportions")}
                       </span>
-                      <span>Private · Local storage</span>
+                      <span>{t("privateLocal")}</span>
                     </div>
                   </div>
                   <div className="upload-forms">
                     <form onSubmit={upload}>
-                      <h3>Add a screen</h3>
-                      <p className="note">PNG, JPEG or WebP · up to 10 MiB</p>
-                      <label htmlFor="screen-title">Screen title</label>
+                      <h3>{t("addScreen")}</h3>
+                      <p className="note">{t("imageTypes")}</p>
+                      <label htmlFor="screen-title">{t("screenTitle")}</label>
                       <input
                         id="screen-title"
+                        aria-label="Screen title"
                         disabled={busy}
                         required
                         maxLength={160}
                         value={screenTitle}
                         onChange={(e) => setScreenTitle(e.target.value)}
-                        placeholder="e.g. Landing page"
+                        placeholder={t("screenPlaceholder")}
                       />
-                      <label htmlFor="image-file">Image file</label>
-                      <input
-                        id="image-file"
-                        disabled={busy}
-                        ref={imageInput}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                      />
+                      <label htmlFor="image-file">{t("imageFile")}</label>
+                      <FilePicker id="image-file" label="Image file" file={file} inputRef={imageInput} onChange={setFile} />
                       <button
+                        aria-label="Upload screen"
                         className="primary"
                         disabled={busy || !file || !screenTitle.trim()}
                       >
-                        Upload screen
+                        {t("uploadScreen")}
                       </button>
                     </form>
                     {screen && (
                       <form onSubmit={newVersion}>
-                        <h3>Keep the next revision</h3>
+                        <h3>{t("nextRevision")}</h3>
                         <p className="note">
-                          Add to “{screen.title}”. Previous versions stay
-                          unchanged.
+                          {t("addTo", { title: screen.title })}
                         </p>
-                        <label htmlFor="revision-file">New version image</label>
-                        <input
-                          id="revision-file"
-                          disabled={busy}
-                          ref={revisionInput}
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={(e) =>
-                            setRevision(e.target.files?.[0] ?? null)
-                          }
-                        />
+                        <label htmlFor="revision-file">{t("newVersionImage")}</label>
+                        <FilePicker id="revision-file" label="New version image" file={revision} inputRef={revisionInput} onChange={setRevision} />
                         <button
+                          aria-label="Upload new version"
                           className="secondary"
                           disabled={busy || !revision}
                         >
-                          Upload new version
+                          {t("uploadVersion")}
                         </button>
                       </form>
                     )}
                   </div>
-                  <ShareManager key={presentation.id} presentationId={presentation.id}
+                  <div id="share-section"><ShareManager key={presentation.id} presentationId={presentation.id}
                     busy={busy} request={api} execute={work => run(work, true)} />
+                  </div>
                 </>
               )}
             </section>
@@ -480,7 +506,7 @@ export default function Workspace() {
         )}
         {busy && (
           <div className="working" role="status">
-            Saving your work…
+            {t("saving")}
           </div>
         )}
       </main>
